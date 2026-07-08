@@ -1,0 +1,6 @@
+ingestion:
+  max_streams: 10
+  default_fps: 1.0
+
+queue:
+  redis_url: redis://localhost:6379/0

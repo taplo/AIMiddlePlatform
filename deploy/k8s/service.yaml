@@ -1,0 +1,33 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: aimp-api
+  labels:
+    app: aimiddleplatform
+    component: api
+spec:
+  selector:
+    app: aimiddleplatform
+    component: api
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8000
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: aimp-redis
+  labels:
+    app: aimiddleplatform
+    component: redis
+spec:
+  selector:
+    app: aimiddleplatform
+    component: redis
+  ports:
+    - protocol: TCP
+      port: 6379
+      targetPort: 6379
+  type: ClusterIP

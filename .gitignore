@@ -1,0 +1,12 @@
+.planning/
+.superpowers/
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+node_modules/
+*.onnx
+models/
+*.traineddata
+.charts/
+参考资料/

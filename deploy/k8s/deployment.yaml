@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aimp-api
+  labels:
+    app: aimiddleplatform
+    component: api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: aimiddleplatform
+      component: api
+  template:
+    metadata:
+      labels:
+        app: aimiddleplatform
+        component: api
+    spec:
+      containers:
+        - name: api
+          image: aimiddleplatform:0.1.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: aimp-config
+          env:
+            - name: APP_ENV
+              value: "production"
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "512Mi"
+            limits:
+              cpu: "2000m"
+              memory: "2Gi"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10

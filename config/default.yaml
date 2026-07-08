@@ -1,0 +1,21 @@
+app:
+  name: aimiddleplatform
+  version: 0.1.0
+
+ingestion:
+  max_streams: 1000
+  default_fps: 1.0
+  fps_options: [0.5, 1.0, 2.0, 5.0, 10.0, 30.0]
+  reconnect_interval: 5
+  frame_timeout: 30
+
+queue:
+  type: redis_streams
+  redis_url: redis://localhost:6379/0
+  consumer_group: ingestion_workers
+  max_backlog: 10000
+
+cache:
+  enabled: true
+  max_duration: 5
+  buffer_size_mb: 512
