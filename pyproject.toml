@@ -19,6 +19,10 @@ dependencies = [
     "uvicorn[standard]>=0.51.0",
 ]
 
+[build-system]
+requires = ["setuptools>=75.0"]
+build-backend = "setuptools.build_meta"
+
 [dependency-groups]
 dev = [
     "httpx>=0.28.1",

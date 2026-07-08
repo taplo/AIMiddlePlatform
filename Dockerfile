@@ -1,18 +1,13 @@
-FROM python:3.12-slim AS builder
-
-WORKDIR /app
-COPY pyproject.toml .
-RUN pip install --no-cache-dir uv && uv sync --no-dev
-
 FROM python:3.12-slim
 
 WORKDIR /app
-COPY --from=builder /app/.venv .venv
+COPY pyproject.toml .
+RUN pip install --no-cache-dir setuptools && pip install --no-cache-dir .
+
 COPY config/ config/
 COPY src/ src/
 
-ENV PATH="/app/.venv/bin:$PATH" \
-    PYTHONPATH="/app" \
+ENV PYTHONPATH="/app" \
     APP_ENV="production"
 
 EXPOSE 8000
