@@ -4,10 +4,8 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        http_proxy: "${http_proxy:-}"
-        https_proxy: "${https_proxy:-}"
-        HTTP_PROXY: "${HTTP_PROXY:-}"
-        HTTPS_PROXY: "${HTTPS_PROXY:-}"
+        http_proxy: "${http_proxy}"
+        https_proxy: "${https_proxy}"
     image: aimiddleplatform:0.1.0
     container_name: aimp-api
     ports:
