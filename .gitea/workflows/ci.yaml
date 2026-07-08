@@ -1,0 +1,53 @@
+name: CI Pipeline
+run-name: CI # ${{ gitea.sha }}
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        run: pip install uv
+
+      - name: Sync dependencies
+        run: uv sync
+
+      - name: Run tests
+        run: uv run python -m pytest tests/ -v
+
+  deploy:
+    needs: [test]
+    if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Deploy via Docker Compose
+        env:
+          SSH_HOST: "192.168.3.123"
+          SSH_USER: "taplo"
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          rsync -avz -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
+            --exclude '.venv' --exclude '__pycache__' --exclude '.pytest_cache' \
+            --exclude '.planning' --exclude 'node_modules' --exclude '*.onnx' \
+            ./ ${SSH_USER}@${SSH_HOST}:/opt/aimiddleplatform/
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
+            ${SSH_USER}@${SSH_HOST} \
+            "cd /opt/aimiddleplatform && docker compose up -d --build"
