@@ -1,0 +1,16 @@
+services:
+  runner:
+    image: gitea/act_runner:latest
+    container_name: aimp-runner
+    environment:
+      - GITEA_INSTANCE_URL=http://192.168.3.122:3000
+      - GITEA_RUNNER_REGISTRATION_TOKEN=ApG7LqX4vLUun5dLyHVprAzGyLG9e8p3KfpgiQBx
+      - GITEA_RUNNER_NAME=vm2-runner
+      - GITEA_RUNNER_LABELS=ubuntu-latest:host
+    volumes:
+      - runner_data:/data
+      - /var/run/docker.sock:/var/run/docker.sock
+    restart: unless-stopped
+
+volumes:
+  runner_data:
