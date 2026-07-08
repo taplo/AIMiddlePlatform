@@ -1,8 +1,14 @@
 FROM python:3.12-slim
 
+ARG http_proxy
+ARG https_proxy
+ARG HTTP_PROXY
+ARG HTTPS_PROXY
+
 WORKDIR /app
 COPY pyproject.toml .
-RUN pip install --no-cache-dir setuptools && pip install --no-cache-dir .
+RUN pip install --no-cache-dir setuptools && \
+    pip install --no-cache-dir .
 
 COPY config/ config/
 COPY src/ src/
