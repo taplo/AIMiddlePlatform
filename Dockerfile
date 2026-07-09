@@ -1,7 +1,11 @@
 FROM python:3.12-slim
 
 WORKDIR /app
-COPY .venv/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
+COPY requirements.txt .
+COPY wheelhouse/ /wheelhouse/
+RUN pip install --no-index --find-links /wheelhouse setuptools && \
+    pip install --no-index --find-links /wheelhouse -r requirements.txt
+
 COPY config/ config/
 COPY src/ src/
 
