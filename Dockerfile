@@ -1,10 +1,7 @@
 FROM python:3.12-slim
 
 WORKDIR /app
-COPY pyproject.toml .
-RUN pip install --no-cache-dir setuptools && \
-    pip install --no-cache-dir --default-timeout=120 .
-
+COPY .venv/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
 COPY config/ config/
 COPY src/ src/
 
