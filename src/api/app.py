@@ -1,7 +1,7 @@
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Response
+from fastapi import FastAPI, Request, Response, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 
@@ -27,6 +27,9 @@ from src.agent.client import QwenVLClient
 from src.agent.tools import ToolRegistry, build_cv_tools
 from src.agent.agent import CVAgent
 from src.agent.orchestrator import AgentOrchestrator
+from src.api.routes.admin.auth import router as admin_auth_router
+from src.api.routes.admin.auth import get_current_user
+from src.api.routes.admin.dashboard import router as admin_dashboard_router
 
 logger = logging.getLogger(__name__)
 
@@ -115,6 +118,22 @@ app.include_router(models_route.router)
 app.include_router(routing_route.router)
 app.include_router(config_router)
 app.include_router(analyze_route.router)
+app.include_router(admin_auth_router)
+app.include_router(admin_dashboard_router)
+
+
+@app.middleware("http")
+async def admin_auth_middleware(request: Request, call_next):
+    if request.url.path.startswith("/api/v1/") and request.url.path not in ("/api/v1/auth/login", "/api/v1/auth/refresh"):
+        auth = request.headers.get("Authorization", "")
+        if not auth.startswith("Bearer "):
+            return Response('{"detail":"Not authenticated"}', 401, media_type="application/json")
+        try:
+            token = auth.split(" ", 1)[1]
+            get_current_user(token)
+        except HTTPException:
+            return Response('{"detail":"Invalid token"}', 401, media_type="application/json")
+    return await call_next(request)
 
 
 @app.get("/metrics")
