@@ -32,6 +32,7 @@ from src.api.routes.admin.auth import get_current_user
 from src.api.routes.admin.dashboard import router as admin_dashboard_router
 from src.api.routes.admin.models import router as admin_models_router
 from src.api.routes.admin.agent import router as admin_agent_router
+from src.api.routes.admin.pipelines import router as admin_pipelines_router, init_pipeline_registry
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +62,7 @@ def _init_components() -> None:
     executor.register_handler(NodeType.MODEL_INFERENCE, _inference_handler)
     _register_default_pipelines(pipeline_registry)
     logger.info("Registered %d pipelines", len(pipeline_registry.list()))
+    init_pipeline_registry(pipeline_registry)
 
     scene_router = SceneRouter()
     routing_route.init_router(scene_router)
@@ -124,6 +126,7 @@ app.include_router(admin_auth_router)
 app.include_router(admin_dashboard_router)
 app.include_router(admin_models_router)
 app.include_router(admin_agent_router)
+app.include_router(admin_pipelines_router)
 
 
 @app.middleware("http")
