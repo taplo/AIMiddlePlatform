@@ -6,11 +6,17 @@
     <el-menu-item index="/cameras">
       <el-icon><VideoCamera /></el-icon><span>视频源管理</span>
     </el-menu-item>
+    <el-menu-item index="/models">
+      <el-icon><Collection /></el-icon><span>模型管理</span>
+    </el-menu-item>
+    <el-menu-item index="/agent">
+      <el-icon><Setting /></el-icon><span>Agent 配置</span>
+    </el-menu-item>
   </el-menu>
 </template>
 
 <script setup lang="ts">
 import { useRoute } from 'vue-router'
-import { Odometer, VideoCamera } from '@element-plus/icons-vue'
+import { Odometer, VideoCamera, Collection, Setting } from '@element-plus/icons-vue'
 const route = useRoute()
 </script>

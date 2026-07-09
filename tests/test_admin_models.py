@@ -14,9 +14,17 @@ def _init_registry() -> None:
     models_route.init_registry(registry)
 
 
+def _clear_registry() -> None:
+    models_route.init_registry(ModelRegistry())
+
+
 def _get_token() -> str:
     resp = client.post("/api/v1/auth/login", json={"username": "admin", "password": "admin123"})
     return resp.json()["access_token"]
+
+
+def teardown_module() -> None:
+    _clear_registry()
 
 
 def test_model_stats_requires_auth() -> None:
