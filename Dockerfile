@@ -1,10 +1,9 @@
-FROM python:3.14-slim
+FROM python:3.12-slim
 
 WORKDIR /app
 COPY requirements.txt .
-COPY wheelhouse/ /wheelhouse/
-RUN pip install --no-index --find-links /wheelhouse setuptools && \
-    pip install --no-index --find-links /wheelhouse -r requirements.txt
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install --default-timeout=300 -r requirements.txt
 
 COPY config/ config/
 COPY src/ src/
