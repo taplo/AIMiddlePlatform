@@ -34,7 +34,10 @@ from src.api.routes.admin.models import router as admin_models_router
 from src.api.routes.admin.agent import router as admin_agent_router
 from src.api.routes.admin.pipelines import router as admin_pipelines_router, init_pipeline_registry
 from src.api.routes.admin.logs import router as admin_logs_router
+from src.api.routes.admin.traces import router as admin_traces_router
 from src.monitoring.log_buffer import init_log_buffer
+from src.monitoring.trace_store import init_trace_store
+from src.monitoring.tracing import add_trace_store_exporter
 
 logger = logging.getLogger(__name__)
 
@@ -77,6 +80,10 @@ def _init_components() -> None:
     orchestrator = AgentOrchestrator(fast_path, agent, inference)
     analyze_route.init_orchestrator(orchestrator)
     logger.info("Initialized agent orchestrator")
+
+    store = init_trace_store(maxlen=500)
+    add_trace_store_exporter(store)
+    logger.info("Initialized trace store")
 
 
 def _register_default_pipelines(registry: PipelineRegistry) -> None:
@@ -131,6 +138,7 @@ app.include_router(admin_models_router)
 app.include_router(admin_agent_router)
 app.include_router(admin_pipelines_router)
 app.include_router(admin_logs_router)
+app.include_router(admin_traces_router)
 
 
 @app.middleware("http")

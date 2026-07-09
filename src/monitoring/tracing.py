@@ -9,6 +9,8 @@ from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
 
+from src.monitoring.trace_store import TraceStore
+
 _tracer: trace.Tracer | None = None
 _default_attributes: dict[str, Any] = {}
 
@@ -34,6 +36,12 @@ def init_tracing(service_name: str = "aimiddleplatform") -> TracerProvider:
     trace.set_tracer_provider(provider)
     _tracer = trace.get_tracer(service_name)
     return provider
+
+
+def add_trace_store_exporter(store: TraceStore) -> None:
+    provider = trace.get_tracer_provider()
+    if hasattr(provider, "add_span_processor"):
+        provider.add_span_processor(BatchSpanProcessor(store))
 
 
 def set_default_attributes(attrs: dict[str, Any]) -> None:
