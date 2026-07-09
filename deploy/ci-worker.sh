@@ -15,7 +15,8 @@ LATEST_LOCAL=$(git rev-parse HEAD 2>/dev/null || echo "none")
 
 if [ "$LATEST_REMOTE" != "$LATEST_LOCAL" ]; then
   echo "[$(date)] New commit detected: $LATEST_REMOTE"
-  git pull "$REPO_URL" main
+  git fetch "$REPO_URL" main
+  git reset --hard FETCH_HEAD
 
   echo "{\"commit\":\"$LATEST_REMOTE\",\"status\":\"running\",\"started_at\":\"$(date -Iseconds)\"}" > $STATUS_FILE
 
