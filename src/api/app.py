@@ -1,3 +1,6 @@
+import logging
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
@@ -12,10 +15,96 @@ from src.core.config import settings
 from src.monitoring.tracing import init_tracing
 from src.monitoring.metrics import metrics_endpoint
 
+logger = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    _init_components()
+    yield
+
+
+def _init_components() -> None:
+    from src.models.registry import ModelRegistry
+    from src.models.inference import InferenceOrchestrator
+    from src.models.presets import register_default_models
+    from src.models.adapters.onnx_adapter import ONNXModelAdapter
+    from src.routing.scene_router import SceneRouter
+    from src.pipeline.registry import PipelineRegistry
+    from src.pipeline.executor import DAGExecutor
+    from src.pipeline.dag import DAGDefinition, DAGNode, NodeType
+    from src.routing.fast_path import FastPathHandler
+    from src.agent.client import QwenVLClient
+    from src.agent.tools import ToolRegistry, build_cv_tools
+    from src.agent.agent import CVAgent
+    from src.agent.orchestrator import AgentOrchestrator
+    from src.api.routes import models as models_route
+    from src.api.routes import routing as routing_route
+    from src.api.routes import analyze as analyze_route
+
+    model_registry = ModelRegistry()
+    register_default_models(model_registry)
+    models_route.init_registry(model_registry)
+    logger.info("Initialized model registry with %d models", len(model_registry.list_models()))
+
+    inference = InferenceOrchestrator(model_registry)
+    inference.register_adapter("onnx", ONNXModelAdapter())
+    logger.info("Initialized inference orchestrator")
+
+    pipeline_registry = PipelineRegistry()
+    executor = DAGExecutor()
+    executor.register_handler(NodeType.MODEL_INFERENCE, _inference_handler)
+    _register_default_pipelines(pipeline_registry)
+    logger.info("Registered %d pipelines", len(pipeline_registry.list()))
+
+    scene_router = SceneRouter()
+    routing_route.init_router(scene_router)
+
+    fast_path = FastPathHandler(scene_router, pipeline_registry, executor)
+    tool_registry = ToolRegistry(inference)
+    build_cv_tools(tool_registry)
+    agent = CVAgent(QwenVLClient(), tool_registry)
+    orchestrator = AgentOrchestrator(fast_path, agent, inference)
+    analyze_route.init_orchestrator(orchestrator)
+    logger.info("Initialized agent orchestrator")
+
+
+def _inference_handler(context: dict, input_data: dict) -> dict:
+    node = context.get("_current_node", {})
+    config = node.get("config", {})
+    return {"output": "stub_inference", "node_config": config}
+
+
+def _register_default_pipelines(registry: PipelineRegistry) -> None:
+    pipelines = {
+        "plate_recognition": [
+            DAGNode("detect_plate", NodeType.MODEL_INFERENCE, config={"model": "license_plate"}),
+        ],
+        "object_detection": [
+            DAGNode("detect_objects", NodeType.MODEL_INFERENCE, config={"model": "object_detection"}),
+        ],
+        "face_recognition": [
+            DAGNode("detect_faces", NodeType.MODEL_INFERENCE, config={"model": "face_recognition"}),
+        ],
+        "vehicle_detection": [
+            DAGNode("detect_vehicles", NodeType.MODEL_INFERENCE, config={"model": "vehicle_detection"}),
+        ],
+        "ocr": [
+            DAGNode("ocr_text", NodeType.MODEL_INFERENCE, config={"model": "ocr"}),
+        ],
+    }
+    for name, nodes in pipelines.items():
+        dag = DAGDefinition(name=name)
+        for n in nodes:
+            dag.add_node(n)
+        registry.register(name, dag)
+
+
 app = FastAPI(
     title="AI Algorithm Scheduling Platform",
     version="0.1.0",
     description="大小模型协同的 CV 算法调度中台",
+    lifespan=lifespan,
 )
 
 app.add_middleware(
