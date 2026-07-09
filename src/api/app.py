@@ -7,13 +7,26 @@ from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 
 from src.api.routes.health import router as health_router
 from src.api.routes.ingest import router as ingest_router
-from src.api.routes.models import router as models_router
-from src.api.routes.routing import router as routing_router
+from src.api.routes import models as models_route
+from src.api.routes import routing as routing_route
+from src.api.routes import analyze as analyze_route
 from src.api.routes.config_routes import router as config_router
-from src.api.routes.analyze import router as analyze_router
 from src.core.config import settings
 from src.monitoring.tracing import init_tracing
 from src.monitoring.metrics import metrics_endpoint
+from src.models.registry import ModelRegistry
+from src.models.inference import InferenceOrchestrator
+from src.models.presets import register_default_models
+from src.models.adapters.onnx_adapter import ONNXModelAdapter
+from src.routing.scene_router import SceneRouter
+from src.pipeline.registry import PipelineRegistry
+from src.pipeline.executor import DAGExecutor
+from src.pipeline.dag import DAGDefinition, DAGNode, NodeType
+from src.routing.fast_path import FastPathHandler
+from src.agent.client import QwenVLClient
+from src.agent.tools import ToolRegistry, build_cv_tools
+from src.agent.agent import CVAgent
+from src.agent.orchestrator import AgentOrchestrator
 
 logger = logging.getLogger(__name__)
 
@@ -24,24 +37,11 @@ async def lifespan(app: FastAPI):
     yield
 
 
-def _init_components() -> None:
-    from src.models.registry import ModelRegistry
-    from src.models.inference import InferenceOrchestrator
-    from src.models.presets import register_default_models
-    from src.models.adapters.onnx_adapter import ONNXModelAdapter
-    from src.routing.scene_router import SceneRouter
-    from src.pipeline.registry import PipelineRegistry
-    from src.pipeline.executor import DAGExecutor
-    from src.pipeline.dag import DAGDefinition, DAGNode, NodeType
-    from src.routing.fast_path import FastPathHandler
-    from src.agent.client import QwenVLClient
-    from src.agent.tools import ToolRegistry, build_cv_tools
-    from src.agent.agent import CVAgent
-    from src.agent.orchestrator import AgentOrchestrator
-    from src.api.routes import models as models_route
-    from src.api.routes import routing as routing_route
-    from src.api.routes import analyze as analyze_route
+def _inference_handler(context: dict, input_data: dict) -> dict:
+    return {"output": "stub_inference"}
 
+
+def _init_components() -> None:
     model_registry = ModelRegistry()
     register_default_models(model_registry)
     models_route.init_registry(model_registry)
@@ -67,12 +67,6 @@ def _init_components() -> None:
     orchestrator = AgentOrchestrator(fast_path, agent, inference)
     analyze_route.init_orchestrator(orchestrator)
     logger.info("Initialized agent orchestrator")
-
-
-def _inference_handler(context: dict, input_data: dict) -> dict:
-    node = context.get("_current_node", {})
-    config = node.get("config", {})
-    return {"output": "stub_inference", "node_config": config}
 
 
 def _register_default_pipelines(registry: PipelineRegistry) -> None:
@@ -117,10 +111,10 @@ app.add_middleware(
 
 app.include_router(health_router)
 app.include_router(ingest_router)
-app.include_router(models_router)
-app.include_router(routing_router)
+app.include_router(models_route.router)
+app.include_router(routing_route.router)
 app.include_router(config_router)
-app.include_router(analyze_router)
+app.include_router(analyze_route.router)
 
 
 @app.get("/metrics")
