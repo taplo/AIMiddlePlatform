@@ -2,8 +2,6 @@ FROM python:3.12-slim
 
 ARG http_proxy
 ARG https_proxy
-ARG HTTP_PROXY
-ARG HTTPS_PROXY
 
 WORKDIR /app
 COPY pyproject.toml .
