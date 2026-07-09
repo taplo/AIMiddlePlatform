@@ -33,6 +33,8 @@ from src.api.routes.admin.dashboard import router as admin_dashboard_router
 from src.api.routes.admin.models import router as admin_models_router
 from src.api.routes.admin.agent import router as admin_agent_router
 from src.api.routes.admin.pipelines import router as admin_pipelines_router, init_pipeline_registry
+from src.api.routes.admin.logs import router as admin_logs_router
+from src.monitoring.log_buffer import init_log_buffer
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +42,7 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     _init_components()
+    init_log_buffer(maxlen=2000)
     yield
 
 
@@ -127,6 +130,7 @@ app.include_router(admin_dashboard_router)
 app.include_router(admin_models_router)
 app.include_router(admin_agent_router)
 app.include_router(admin_pipelines_router)
+app.include_router(admin_logs_router)
 
 
 @app.middleware("http")
