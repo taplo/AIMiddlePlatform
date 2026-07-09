@@ -9,3 +9,7 @@ node_modules/
 /models/
 *.traineddata
 .charts/
+*.egg-info/
+all_req.txt
+build_req.txt
+参考文献/
