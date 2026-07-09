@@ -1,18 +1,11 @@
 FROM python:3.12-slim
 
-ARG http_proxy
-ARG https_proxy
-ARG HTTP_PROXY
-ARG HTTPS_PROXY
+ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app
 COPY pyproject.toml .
-RUN echo "http_proxy=$http_proxy" && \
-    if [ -n "$http_proxy" ]; then \
-      export http_proxy=$http_proxy https_proxy=$https_proxy HTTP_PROXY=$http_proxy HTTPS_PROXY=$https_proxy; \
-    fi && \
-    pip install --no-cache-dir setuptools && \
-    pip install --no-cache-dir .
+RUN pip install --no-cache-dir setuptools && \
+    pip install --no-cache-dir --proxy http://192.168.3.208:8787 .
 
 COPY config/ config/
 COPY src/ src/
