@@ -3,7 +3,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: aimiddleplatform:0.1.0
+    image: taplo/aimiddleplatform:0.1.0
     container_name: aimp-api
     ports:
       - "8000:8000"
