@@ -20,8 +20,10 @@ if [ "$LATEST_REMOTE" != "$LATEST_LOCAL" ]; then
   echo "{\"commit\":\"$LATEST_REMOTE\",\"status\":\"running\",\"started_at\":\"$(date -Iseconds)\"}" > $STATUS_FILE
 
   python3 -m venv $VENV_DIR
-  $VENV_DIR/bin/pip install uv -q
+  $VENV_DIR/bin/python -m ensurepip --upgrade
+  $VENV_DIR/bin/pip3 install uv -q
   python3 -m uv sync --no-install-project --directory $WORK_DIR
+  $VENV_DIR/bin/pip3 install pytest pytest-asyncio httpx -q
 
   export PYTHONPATH=$WORK_DIR:$PYTHONPATH
 
