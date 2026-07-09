@@ -30,6 +30,7 @@ from src.agent.orchestrator import AgentOrchestrator
 from src.api.routes.admin.auth import router as admin_auth_router
 from src.api.routes.admin.auth import get_current_user
 from src.api.routes.admin.dashboard import router as admin_dashboard_router
+from src.api.routes.admin.models import router as admin_models_router
 
 logger = logging.getLogger(__name__)
 
@@ -120,6 +121,7 @@ app.include_router(config_router)
 app.include_router(analyze_route.router)
 app.include_router(admin_auth_router)
 app.include_router(admin_dashboard_router)
+app.include_router(admin_models_router)
 
 
 @app.middleware("http")
