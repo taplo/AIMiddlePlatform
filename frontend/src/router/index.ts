@@ -14,6 +14,7 @@ const router = createRouter({
         { path: 'models', name: 'Models', component: () => import('@/views/Models/Index.vue') },
         { path: 'agent', name: 'Agent', component: () => import('@/views/Agent/Index.vue') },
         { path: 'pipelines', name: 'Pipelines', component: () => import('@/views/Pipelines/Index.vue') },
+        { path: 'logs', name: 'Logs', component: () => import('@/views/Logs/Index.vue') },
       ],
     },
   ],

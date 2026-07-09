@@ -15,11 +15,14 @@
     <el-menu-item index="/pipelines">
       <el-icon><Connection /></el-icon><span>流水线管理</span>
     </el-menu-item>
+    <el-menu-item index="/logs">
+      <el-icon><Document /></el-icon><span>日志查询</span>
+    </el-menu-item>
   </el-menu>
 </template>
 
 <script setup lang="ts">
 import { useRoute } from 'vue-router'
-import { Odometer, VideoCamera, Collection, Setting, Connection } from '@element-plus/icons-vue'
+import { Odometer, VideoCamera, Collection, Setting, Connection, Document } from '@element-plus/icons-vue'
 const route = useRoute()
 </script>
