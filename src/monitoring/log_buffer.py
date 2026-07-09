@@ -26,7 +26,7 @@ class LogBuffer(logging.Handler):
             "line": record.lineno,
         }
         if record.exc_info and record.exc_info[0]:
-            entry["exception"] = self.formatException(record.exc_info)
+            entry["exception"] = self.formatter.formatException(record.exc_info) if self.formatter else ""
         self.buffer.append(entry)
 
     def get_all(self) -> list[dict[str, Any]]:
