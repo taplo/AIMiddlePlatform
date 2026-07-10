@@ -17,8 +17,8 @@ async def test_simple_dag() -> None:
     assert dag.validate()
 
     executor = DAGExecutor()
-    executor.register_handler(NodeType.MODEL_INFERENCE, lambda ctx, inp: {"objects": 3})
-    executor.register_handler(NodeType.OUTPUT, lambda ctx, inp: inp)
+    executor.register_handler(NodeType.MODEL_INFERENCE, lambda ctx, inp, cfg: {"objects": 3})
+    executor.register_handler(NodeType.OUTPUT, lambda ctx, inp, cfg: inp)
 
     results = await executor.execute(dag, {})
     assert "detect" in results
@@ -38,9 +38,9 @@ async def test_dag_with_condition() -> None:
     dag.entry_nodes = ["classify"]
 
     executor = DAGExecutor()
-    executor.register_handler(NodeType.MODEL_INFERENCE, lambda ctx, inp: {"label": "car"})
-    executor.register_handler(NodeType.CONDITION, lambda ctx, inp: inp)
-    executor.register_handler(NodeType.OUTPUT, lambda ctx, inp: inp)
+    executor.register_handler(NodeType.MODEL_INFERENCE, lambda ctx, inp, cfg: {"label": "car"})
+    executor.register_handler(NodeType.CONDITION, lambda ctx, inp, cfg: inp)
+    executor.register_handler(NodeType.OUTPUT, lambda ctx, inp, cfg: inp)
 
     results = await executor.execute(dag, {})
     assert results["classify"]["label"] == "car"

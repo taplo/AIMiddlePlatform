@@ -15,7 +15,7 @@ async def test_fast_path_integration() -> None:
 
     dag = DAGDefinition(name="plate_recognition")
     dag.add_node(DAGNode(node_id="detect", node_type=NodeType.MODEL_INFERENCE))
-    executor.register_handler(NodeType.MODEL_INFERENCE, lambda ctx, inp: {"plate": "京A12345"})
+    executor.register_handler(NodeType.MODEL_INFERENCE, lambda ctx, inp, cfg: {"plate": "京A12345"})
 
     registry.register("plate_recognition", dag)
     router.register_route("test_hash", "plate_recognition")
@@ -34,7 +34,7 @@ async def test_fast_path_hit() -> None:
 
     dag = DAGDefinition(name="detection")
     dag.add_node(DAGNode(node_id="detect", node_type=NodeType.MODEL_INFERENCE))
-    executor.register_handler(NodeType.MODEL_INFERENCE, lambda ctx, inp: {"objects": 5})
+    executor.register_handler(NodeType.MODEL_INFERENCE, lambda ctx, inp, cfg: {"objects": 5})
 
     registry.register("detection", dag)
     from src.routing.matchers import camera_id_matcher

@@ -15,7 +15,7 @@ from src.core.config import settings
 from src.monitoring.tracing import init_tracing
 from src.monitoring.metrics import metrics_endpoint
 from src.queue import RedisStreamQueue
-from src.models.registry import ModelRegistry
+from src.models.registry import ModelRegistry, ModelSpec
 from src.models.inference import InferenceOrchestrator
 from src.models.presets import register_default_models
 from src.models.adapters.yolov8_adapter import YOLOv8Adapter
@@ -43,6 +43,8 @@ from src.monitoring.tracing import add_trace_store_exporter
 
 logger = logging.getLogger(__name__)
 
+_inference_orchestrator: InferenceOrchestrator | None = None
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -51,11 +53,22 @@ async def lifespan(app: FastAPI):
     yield
 
 
-def _inference_handler(context: dict, input_data: dict) -> dict:
-    return {"output": "stub_inference"}
+def _inference_handler(context: dict, input_data: dict, node_config: dict) -> dict:
+    global _inference_orchestrator
+    model_id = node_config.get("model", "")
+    if not model_id:
+        return {"error": "no model_id in node_config"}
+    frame = context.get("frame")
+    if frame is None:
+        return {"error": "no frame in context"}
+    spec = ModelSpec(model_id=model_id, name=model_id, version="1.0.0", backend="onnx")
+    import asyncio
+    result = asyncio.run(_inference_orchestrator.predict(spec, {"image": frame}))
+    return result
 
 
 def _init_components() -> None:
+    global _inference_orchestrator
     model_registry = ModelRegistry()
     register_default_models(model_registry)
     models_route.init_registry(model_registry)
@@ -63,6 +76,7 @@ def _init_components() -> None:
 
     inference = InferenceOrchestrator(model_registry)
     inference.register_adapter("onnx", YOLOv8Adapter(model_dir="models"))
+    _inference_orchestrator = inference
     logger.info("Initialized inference orchestrator")
 
     pipeline_registry = PipelineRegistry()

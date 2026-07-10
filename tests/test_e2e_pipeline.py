@@ -36,7 +36,7 @@ def _build_fast_path() -> tuple[SceneRouter, PipelineRegistry, DAGExecutor, Fast
 
     dag = DAGDefinition(name="plate_dag")
     dag.add_node(DAGNode(node_id="detect", node_type=NodeType.MODEL_INFERENCE))
-    executor.register_handler(NodeType.MODEL_INFERENCE, lambda ctx, inp: {"plate": "京A12345"})
+    executor.register_handler(NodeType.MODEL_INFERENCE, lambda ctx, inp, cfg: {"plate": "京A12345"})
     registry.register("plate_recognition", dag)
 
     router.add_matcher(camera_id_matcher({"cam-plate-01": "plate_recognition"}))
@@ -105,7 +105,7 @@ async def test_e2e_fast_path_with_model_inference() -> None:
     pipeline_dag.add_node(DAGNode(node_id="inference", node_type=NodeType.MODEL_INFERENCE))
     executor.register_handler(
         NodeType.MODEL_INFERENCE,
-        lambda ctx, inp: {"output": ctx.get("model_id", "unknown")},
+        lambda ctx, inp, cfg: {"output": ctx.get("model_id", "unknown")},
     )
     registry.register("obj_detect", pipeline_dag)
     router.add_matcher(camera_id_matcher({"cam-obj-01": "obj_detect"}))

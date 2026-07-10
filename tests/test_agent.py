@@ -84,7 +84,7 @@ async def test_agent_orchestrator_routes_to_fast_path_first() -> None:
 
     dag = DAGDefinition(name="test_pipeline")
     dag.add_node(DAGNode(node_id="detect", node_type=NodeType.MODEL_INFERENCE))
-    executor.register_handler(NodeType.MODEL_INFERENCE, lambda ctx, inp: {"ok": True})
+    executor.register_handler(NodeType.MODEL_INFERENCE, lambda ctx, inp, cfg: {"ok": True})
     registry.register("test_pipeline", dag)
     router.add_matcher(camera_id_matcher({"cam-01": "test_pipeline"}))
 

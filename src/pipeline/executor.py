@@ -8,7 +8,7 @@ from src.pipeline.dag import DAGDefinition, NodeType
 
 logger = logging.getLogger(__name__)
 
-NodeHandler = Callable[[dict[str, Any], dict[str, Any]], Any]
+NodeHandler = Callable[[dict[str, Any], dict[str, Any], dict[str, Any]], Any]
 
 
 class DAGExecutor:
@@ -46,7 +46,7 @@ class DAGExecutor:
 
                 async def run(nid: str, handler: NodeHandler) -> None:
                     input_data = {dep: results[dep] for dep in dag.nodes[nid].depends_on}
-                    result = await asyncio.to_thread(handler, context, input_data)
+                    result = await asyncio.to_thread(handler, context, input_data, dag.nodes[nid].config)
                     results[nid] = result
                     completed.add(nid)
 
