@@ -53,16 +53,31 @@ async def lifespan(app: FastAPI):
     yield
 
 
+def _decode_frame(frame: str) -> "np.ndarray | None":
+    import base64
+    import cv2
+    import numpy as np
+    try:
+        raw = base64.b64decode(frame)
+        arr = np.frombuffer(raw, dtype=np.uint8)
+        return cv2.imdecode(arr, cv2.IMREAD_COLOR)
+    except Exception:
+        return None
+
+
 def _inference_handler(context: dict, input_data: dict, node_config: dict) -> dict:
     global _inference_orchestrator
     model_id = node_config.get("model", "")
     if not model_id:
         return {"error": "no model_id in node_config"}
-    frame = context.get("frame")
-    if frame is None:
+    raw = context.get("frame")
+    if raw is None:
         return {"error": "no frame in context"}
+    image = _decode_frame(raw)
+    if image is None:
+        return {"error": "failed to decode frame"}
     import asyncio
-    result = asyncio.run(_inference_orchestrator.infer(model_id, {"image": frame}))
+    result = asyncio.run(_inference_orchestrator.infer(model_id, {"image": image}))
     return result
 
 
