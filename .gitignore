@@ -5,8 +5,10 @@ __pycache__/
 .venv/
 .pytest_cache/
 node_modules/
-*.onnx
-/models/
+models/download_model.py
+models/check_releases.py
+models/test_inference.py
+models/generate_test_model.py
 *.traineddata
 .charts/
 *.egg-info/

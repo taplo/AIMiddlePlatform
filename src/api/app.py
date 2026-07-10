@@ -18,7 +18,7 @@ from src.queue import RedisStreamQueue
 from src.models.registry import ModelRegistry
 from src.models.inference import InferenceOrchestrator
 from src.models.presets import register_default_models
-from src.models.adapters.onnx_adapter import ONNXModelAdapter
+from src.models.adapters.yolov8_adapter import YOLOv8Adapter
 from src.routing.scene_router import SceneRouter
 from src.pipeline.registry import PipelineRegistry
 from src.pipeline.executor import DAGExecutor
@@ -62,7 +62,7 @@ def _init_components() -> None:
     logger.info("Initialized model registry with %d models", len(model_registry.list_models()))
 
     inference = InferenceOrchestrator(model_registry)
-    inference.register_adapter("onnx", ONNXModelAdapter())
+    inference.register_adapter("onnx", YOLOv8Adapter(model_dir="models"))
     logger.info("Initialized inference orchestrator")
 
     pipeline_registry = PipelineRegistry()

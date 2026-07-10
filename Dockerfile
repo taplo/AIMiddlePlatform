@@ -20,6 +20,7 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 
 COPY config/ config/
 COPY src/ src/
+COPY models/ models/
 
 COPY --from=frontend-builder /app/dist/ frontend/dist/
 
