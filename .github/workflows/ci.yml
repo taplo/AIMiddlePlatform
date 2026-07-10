@@ -38,6 +38,7 @@ jobs:
           push: true
           tags: |
             taplo/aimiddleplatform:latest
+            taplo/aimiddleplatform:0.1.0
             taplo/aimiddleplatform:${{ github.sha }}
           cache-from: type=registry,ref=taplo/aimiddleplatform:buildcache
           cache-to: type=registry,ref=taplo/aimiddleplatform:buildcache,mode=max
