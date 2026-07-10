@@ -15,7 +15,7 @@ from src.core.config import settings
 from src.monitoring.tracing import init_tracing
 from src.monitoring.metrics import metrics_endpoint
 from src.queue import RedisStreamQueue
-from src.models.registry import ModelRegistry, ModelSpec
+from src.models.registry import ModelRegistry
 from src.models.inference import InferenceOrchestrator
 from src.models.presets import register_default_models
 from src.models.adapters.yolov8_adapter import YOLOv8Adapter
@@ -61,9 +61,8 @@ def _inference_handler(context: dict, input_data: dict, node_config: dict) -> di
     frame = context.get("frame")
     if frame is None:
         return {"error": "no frame in context"}
-    spec = ModelSpec(model_id=model_id, name=model_id, version="1.0.0", backend="onnx")
     import asyncio
-    result = asyncio.run(_inference_orchestrator.predict(spec, {"image": frame}))
+    result = asyncio.run(_inference_orchestrator.infer(model_id, {"image": frame}))
     return result
 
 
