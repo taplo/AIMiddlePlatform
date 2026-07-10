@@ -14,6 +14,7 @@ from src.api.routes.config_routes import router as config_router
 from src.core.config import settings
 from src.monitoring.tracing import init_tracing
 from src.monitoring.metrics import metrics_endpoint
+from src.queue import RedisStreamQueue
 from src.models.registry import ModelRegistry
 from src.models.inference import InferenceOrchestrator
 from src.models.presets import register_default_models
@@ -33,6 +34,7 @@ from src.api.routes.admin.dashboard import router as admin_dashboard_router
 from src.api.routes.admin.models import router as admin_models_router
 from src.api.routes.admin.agent import router as admin_agent_router
 from src.api.routes.admin.pipelines import router as admin_pipelines_router, init_pipeline_registry
+from src.api.routes.ingest import init_queue
 from src.api.routes.admin.logs import router as admin_logs_router
 from src.api.routes.admin.traces import router as admin_traces_router
 from src.monitoring.log_buffer import init_log_buffer
@@ -84,6 +86,10 @@ def _init_components() -> None:
     store = init_trace_store(maxlen=500)
     add_trace_store_exporter(store)
     logger.info("Initialized trace store")
+
+    queue = RedisStreamQueue()
+    init_queue(queue)
+    logger.info("Initialized RedisStreamQueue")
 
 
 def _register_default_pipelines(registry: PipelineRegistry) -> None:

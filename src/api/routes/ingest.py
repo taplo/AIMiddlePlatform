@@ -4,6 +4,15 @@ from datetime import datetime
 from fastapi import APIRouter, HTTPException
 
 from src.core.schemas import AnalysisResult, StreamConfig, StreamTask
+from src.queue import RedisStreamQueue
+
+_queue: RedisStreamQueue | None = None
+
+
+def init_queue(q: RedisStreamQueue) -> None:
+    global _queue
+    _queue = q
+
 
 router = APIRouter(prefix="/v1", tags=["ingestion"])
 
@@ -21,6 +30,8 @@ async def register_stream(config: StreamConfig) -> StreamTask:
         protocol=config.protocol,
         config=config,
     )
+    if _queue is not None:
+        await _queue.push(camera_id, task.model_dump_json().encode())
     _streams[camera_id] = task
     return task
 
