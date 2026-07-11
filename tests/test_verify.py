@@ -27,28 +27,35 @@ def test_verify_no_candidates():
     assert all(d.get("verified") is True for d in result["detections"])
 
 
-def test_verify_candidate_accepted():
-    dets = [{"bbox": [100, 50, 200, 150], "label": "person", "confidence": 0.65}]
-    result = verify_handler(
-        {"frame": _make_frame()},
-        {"detections": dets},
-        {"verify_threshold": 0.5, "verify_margin": 0.3},
-    )
-    assert result["verification_count"] == 1
-    d = result["detections"][0]
-    assert d["verified"] is True or d["verified"] is False
-    assert "verification_reason" in d
+def test_verify_candidate_triggers_llm_call():
+    """Verify handler calls the LLM; accepts success or error outcome."""
+    import httpx
+    from src.agent.client import QwenVLClient
+    from src.pipeline.verify_handler import _get_verify_client
 
+    # Override the singleton with a mocked client
+    mock_transport = httpx.MockTransport(lambda req: httpx.Response(200, json={
+        "choices": [{"message": {
+            "content": '{"verified": true, "corrected_label": "person", "reason": "clearly visible"}',
+            "role": "assistant",
+        }}]
+    }))
+    _orig = _get_verify_client()
+    import src.pipeline.verify_handler as vh
+    vh._verify_client = QwenVLClient(http_client=httpx.AsyncClient(transport=mock_transport))
 
-def test_verify_candidate_rejected():
-    dets = [{"bbox": [100, 50, 200, 150], "label": "person", "confidence": 0.65}]
-    result = verify_handler(
-        {"frame": _make_frame()},
-        {"detections": dets},
-        {"verify_threshold": 0.5, "verify_margin": 0.3},
-    )
-    d = result["detections"][0]
-    assert "verified" in d
+    try:
+        result = verify_handler(
+            {"frame": _make_frame()},
+            {"detections": [{"bbox": [100, 50, 200, 150], "label": "person", "confidence": 0.65}]},
+            {"verify_threshold": 0.5, "verify_margin": 0.3},
+        )
+        assert result["verification_count"] == 1
+        d = result["detections"][0]
+        assert d["verified"] is True
+        assert d["verification_reason"] != ""
+    finally:
+        vh._verify_client = _orig
 
 
 def test_verify_empty_frame():
@@ -73,14 +80,31 @@ def test_verify_no_detections():
 
 
 def test_verify_edge_threshold():
-    dets = [
-        {"bbox": [100, 50, 200, 150], "label": "person", "confidence": 0.5},
-        {"bbox": [100, 50, 200, 150], "label": "car", "confidence": 0.8},
-        {"bbox": [100, 50, 200, 150], "label": "bus", "confidence": 0.79},
-    ]
-    result = verify_handler(
-        {"frame": _make_frame()},
-        {"detections": dets},
-        {"verify_threshold": 0.5, "verify_margin": 0.3},
-    )
-    assert result["verification_count"] == 2
+    """边界值：exactly at threshold, exactly at threshold+margin"""
+    import httpx
+    from src.agent.client import QwenVLClient
+    import src.pipeline.verify_handler as vh
+
+    mock_transport = httpx.MockTransport(lambda req: httpx.Response(200, json={
+        "choices": [{"message": {
+            "content": '{"verified": true, "corrected_label": "person", "reason": "ok"}',
+            "role": "assistant",
+        }}]
+    }))
+    _orig = vh._verify_client
+    vh._verify_client = QwenVLClient(http_client=httpx.AsyncClient(transport=mock_transport))
+
+    try:
+        dets = [
+            {"bbox": [100, 50, 200, 150], "label": "person", "confidence": 0.5},
+            {"bbox": [100, 50, 200, 150], "label": "car", "confidence": 0.8},
+            {"bbox": [100, 50, 200, 150], "label": "bus", "confidence": 0.79},
+        ]
+        result = verify_handler(
+            {"frame": _make_frame()},
+            {"detections": dets},
+            {"verify_threshold": 0.5, "verify_margin": 0.3},
+        )
+        assert result["verification_count"] == 2
+    finally:
+        vh._verify_client = _orig

@@ -17,6 +17,7 @@ from src.models.adapters.yolov8_adapter import YOLOv8Adapter
 from src.pipeline.registry import PipelineRegistry
 from src.pipeline.executor import DAGExecutor
 from src.pipeline.dag import DAGDefinition, DAGNode, NodeType
+from src.pipeline.verify_handler import verify_handler
 from src.routing.scene_router import SceneRouter
 from src.agent.tools import ToolRegistry, build_cv_tools
 from src.agent.client import QwenVLClient
@@ -38,6 +39,7 @@ def _init_fast_path() -> tuple[SceneRouter, PipelineRegistry, DAGExecutor, FastP
     registry = PipelineRegistry()
     executor = DAGExecutor()
     executor.register_handler(NodeType.MODEL_INFERENCE, _inference_handler)
+    executor.register_handler(NodeType.VERIFY, verify_handler)
     _register_default_pipelines(registry)
     handler = FastPathHandler(router, registry, executor)
     return router, registry, executor, handler

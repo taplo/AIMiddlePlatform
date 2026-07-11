@@ -24,6 +24,7 @@ from src.routing.scene_router import SceneRouter
 from src.pipeline.registry import PipelineRegistry
 from src.pipeline.executor import DAGExecutor
 from src.pipeline.dag import DAGDefinition, DAGNode, NodeType
+from src.pipeline.verify_handler import verify_handler
 from src.routing.fast_path import FastPathHandler
 from src.agent.client import QwenVLClient
 from src.agent.tools import ToolRegistry, build_cv_tools
@@ -103,6 +104,7 @@ def _init_components() -> None:
     pipeline_registry = PipelineRegistry()
     executor = DAGExecutor()
     executor.register_handler(NodeType.MODEL_INFERENCE, _inference_handler)
+    executor.register_handler(NodeType.VERIFY, verify_handler)
     _register_default_pipelines(pipeline_registry)
     logger.info("Registered %d pipelines", len(pipeline_registry.list()))
     init_pipeline_registry(pipeline_registry)
