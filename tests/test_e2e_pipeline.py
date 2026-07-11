@@ -78,10 +78,14 @@ async def test_e2e_fast_path_hit_by_scene_type() -> None:
 
 @pytest.mark.asyncio
 async def test_e2e_fast_path_miss_then_agent() -> None:
+    import httpx
     _, infer = _build_inference()
     tool_registry = ToolRegistry(infer)
     build_cv_tools(tool_registry)
-    agent = CVAgent(QwenVLClient(), tool_registry)
+    mock_transport = httpx.MockTransport(lambda req: httpx.Response(200, json={
+        "choices": [{"message": {"content": '{"scene_type": "unknown", "objects": [], "anomalies": [], "summary": "no match"}', "role": "assistant"}}]
+    }))
+    agent = CVAgent(QwenVLClient(http_client=httpx.AsyncClient(transport=mock_transport)), tool_registry)
 
     router = SceneRouter()
     registry = PipelineRegistry()
@@ -122,6 +126,7 @@ async def test_e2e_fast_path_with_model_inference() -> None:
 
 @pytest.mark.asyncio
 async def test_e2e_agent_with_image_routes_correctly() -> None:
+    import httpx
     router = SceneRouter()
     pipeline_registry = PipelineRegistry()
     executor = DAGExecutor()
@@ -130,7 +135,10 @@ async def test_e2e_agent_with_image_routes_correctly() -> None:
     fast_path = FastPathHandler(router, pipeline_registry, executor)
     tool_registry = ToolRegistry(infer)
     build_cv_tools(tool_registry)
-    agent = CVAgent(QwenVLClient(), tool_registry)
+    mock_transport = httpx.MockTransport(lambda req: httpx.Response(200, json={
+        "choices": [{"message": {"content": '{"scene_type": "office", "objects": [], "anomalies": [], "summary": "empty"}', "role": "assistant"}}]
+    }))
+    agent = CVAgent(QwenVLClient(http_client=httpx.AsyncClient(transport=mock_transport)), tool_registry)
     orchestrator = AgentOrchestrator(fast_path, agent, infer)
 
     result = await orchestrator.process(
