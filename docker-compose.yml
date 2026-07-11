@@ -1,5 +1,5 @@
 services:
-  aimiddleplatform:
+  aimp-api:
     build:
       context: .
       dockerfile: Dockerfile
@@ -10,6 +10,9 @@ services:
     environment:
       - APP_ENV=production
       - QUEUE_REDIS_URL=redis://redis:6379/0
+      - DATABASE_URL=sqlite+aiosqlite:///data/aimp.db
+    volumes:
+      - ./data:/app/data
     depends_on:
       redis:
         condition: service_started
@@ -19,6 +22,21 @@ services:
       interval: 15s
       timeout: 5s
       retries: 3
+
+  aimp-worker:
+    image: taplo/aimiddleplatform:latest
+    container_name: aimp-worker
+    command: python -m src.worker
+    depends_on:
+      redis:
+        condition: service_started
+    environment:
+      - APP_ENV=production
+      - QUEUE_REDIS_URL=redis://redis:6379/0
+      - DATABASE_URL=sqlite+aiosqlite:///data/aimp.db
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
 
   redis:
     image: redis:7-alpine
@@ -43,7 +61,7 @@ services:
       - ./frontend/dist:/usr/share/nginx/html:ro
       - ./deploy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:
-      - aimiddleplatform
+      - aimp-api
     restart: unless-stopped
 
 volumes:
