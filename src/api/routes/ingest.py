@@ -3,7 +3,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, HTTPException
 
-from src.core.schemas import AnalysisResult, StreamConfig, StreamTask
+from src.core.schemas import StreamConfig, StreamTask
 from src.queue import RedisStreamQueue
 
 _queue: RedisStreamQueue | None = None
@@ -34,15 +34,6 @@ async def register_stream(config: StreamConfig) -> StreamTask:
         await _queue.push(camera_id, task.model_dump_json().encode())
     _streams[camera_id] = task
     return task
-
-
-@router.get("/tasks/{task_id}/results")
-async def get_results(task_id: str) -> AnalysisResult:
-    return AnalysisResult(
-        request_id=task_id,
-        timestamp=datetime.now(),
-        camera_id="unknown",
-    )
 
 
 @router.get("/streams")

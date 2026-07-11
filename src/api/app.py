@@ -10,6 +10,7 @@ from src.api.routes.ingest import router as ingest_router
 from src.api.routes import models as models_route
 from src.api.routes import routing as routing_route
 from src.api.routes import analyze as analyze_route
+from src.api.routes import tasks as tasks_route
 from src.api.routes.config_routes import router as config_router
 from src.core.config import settings
 from src.monitoring.tracing import init_tracing
@@ -48,6 +49,12 @@ _inference_orchestrator: InferenceOrchestrator | None = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    from src.core.database import init_db
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+    db_engine = await init_db("sqlite+aiosqlite:///data/aimp.db")
+    session_factory = async_sessionmaker(db_engine, expire_on_commit=False)
+    analyze_route.init_db_session_factory(session_factory)
+    tasks_route.init_db_session_factory(session_factory)
     _init_components()
     init_log_buffer(maxlen=2000)
     yield
@@ -108,7 +115,8 @@ def _init_components() -> None:
     build_cv_tools(tool_registry)
     agent = CVAgent(QwenVLClient(), tool_registry)
     orchestrator = AgentOrchestrator(fast_path, agent, inference)
-    analyze_route.init_orchestrator(orchestrator)
+    from src.api.routes.analyze import analyze_frame
+    analyze_frame._orchestrator = orchestrator
     logger.info("Initialized agent orchestrator")
 
     store = init_trace_store(maxlen=500)
@@ -117,6 +125,7 @@ def _init_components() -> None:
 
     queue = RedisStreamQueue()
     init_queue(queue)
+    analyze_route.init_queue(queue)
     logger.info("Initialized RedisStreamQueue")
 
 
@@ -166,6 +175,7 @@ app.include_router(models_route.router)
 app.include_router(routing_route.router)
 app.include_router(config_router)
 app.include_router(analyze_route.router)
+app.include_router(tasks_route.router)
 app.include_router(admin_auth_router)
 app.include_router(admin_dashboard_router)
 app.include_router(admin_models_router)
