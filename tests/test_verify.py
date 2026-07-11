@@ -1,9 +1,6 @@
-import json
 import pytest
 import numpy as np
 
-from src.pipeline.dag import DAGDefinition, DAGNode, NodeType
-from src.pipeline.executor import DAGExecutor
 from src.pipeline.verify_handler import verify_handler
 
 
@@ -14,13 +11,6 @@ def _make_frame(height=200, width=300):
     import base64
     _, buf = cv2.imencode(".jpg", img)
     return base64.b64encode(buf).decode("ascii")
-
-
-SAMPLE_DETECTIONS = [
-    {"bbox": [100, 50, 200, 150], "label": "person", "confidence": 0.65},
-    {"bbox": [0, 0, 50, 50], "label": "car", "confidence": 0.95},
-    {"bbox": [50, 50, 100, 100], "label": "dog", "confidence": 0.30},
-]
 
 
 def test_verify_no_candidates():
