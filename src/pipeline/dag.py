@@ -9,6 +9,7 @@ class NodeType(Enum):
     CONDITION = "condition"
     AGGREGATE = "aggregate"
     OUTPUT = "output"
+    VERIFY = "verify"
 
 
 @dataclass
