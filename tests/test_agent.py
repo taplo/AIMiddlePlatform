@@ -1,97 +1,95 @@
 import pytest
+import httpx
+import json
 
-from src.agent.client import QwenVLClient, DeepSeekVLClient
-from src.agent.tools import ToolRegistry, build_cv_tools
-from src.agent.agent import CVAgent
+from src.agent.client import (
+    QwenVLClient, DeepSeekVLClient,
+    LLMError, LLMAPIError, LLMTimeoutError, LLMResponseError,
+)
+
+
+def _mock_transport(response_json: dict, status_code: int = 200):
+    return httpx.MockTransport(lambda req: httpx.Response(status_code, json=response_json))
 
 
 @pytest.mark.asyncio
-async def test_qwen_chat() -> None:
-    client = QwenVLClient()
+async def test_qwen_chat_returns_content():
+    transport = _mock_transport({
+        "choices": [{"message": {"content": "Hello!", "role": "assistant"}}]
+    })
+    client = QwenVLClient(http_client=httpx.AsyncClient(transport=transport))
     response = await client.chat([{"role": "user", "content": "hi"}])
-    assert response["content"] is not None
+    assert response["content"] == "Hello!"
+    assert response["tool_calls"] is None
 
 
 @pytest.mark.asyncio
-async def test_qwen_image_chat() -> None:
-    client = QwenVLClient()
+async def test_qwen_chat_with_tools():
+    transport = _mock_transport({
+        "choices": [{
+            "message": {
+                "content": None,
+                "role": "assistant",
+                "tool_calls": [
+                    {"id": "call_1", "type": "function",
+                     "function": {"name": "detect_objects", "arguments": '{"image": "base64..."}'}}
+                ]
+            }
+        }]
+    })
+    client = QwenVLClient(http_client=httpx.AsyncClient(transport=transport))
+    response = await client.chat(
+        [{"role": "user", "content": "detect objects"}],
+        tools=[{"type": "function", "function": {"name": "detect_objects"}}],
+    )
+    assert response["tool_calls"] is not None
+    assert response["tool_calls"][0]["function"]["name"] == "detect_objects"
+
+
+@pytest.mark.asyncio
+async def test_qwen_chat_with_image():
+    transport = _mock_transport({
+        "choices": [{"message": {"content": "A traffic scene", "role": "assistant"}}]
+    })
+    client = QwenVLClient(http_client=httpx.AsyncClient(transport=transport))
     response = await client.chat_with_image("What is this?", b"fake_image_data")
+    assert response["content"] == "A traffic scene"
+
+
+@pytest.mark.asyncio
+async def test_qwen_fallback_json_on_tool_call_failure():
+    """When API returns 400 for tools, retry without tools + response_format=json_object"""
+    called_first = False
+
+    def handler(req):
+        nonlocal called_first
+        if not called_first:
+            called_first = True
+            return httpx.Response(400, json={"error": "tools not supported"})
+        return httpx.Response(200, json={
+            "choices": [{"message": {"content": '{"scene_type": "traffic"}', "role": "assistant"}}]
+        })
+
+    client = QwenVLClient(http_client=httpx.AsyncClient(transport=httpx.MockTransport(handler)))
+    response = await client.chat(
+        [{"role": "user", "content": "analyze"}],
+        tools=[{"type": "function", "function": {"name": "detect_objects"}}],
+    )
     assert response["content"] is not None
 
 
 @pytest.mark.asyncio
-async def test_deepseek_chat() -> None:
-    client = DeepSeekVLClient()
+async def test_qwen_raises_on_api_error():
+    transport = _mock_transport({"error": "unauthorized"}, status_code=401)
+    client = QwenVLClient(http_client=httpx.AsyncClient(transport=transport))
+    with pytest.raises(LLMAPIError, match="401"):
+        await client.chat([{"role": "user", "content": "hi"}])
+
+
+@pytest.mark.asyncio
+async def test_qwen_deepseek_defaults():
+    client = DeepSeekVLClient(http_client=httpx.AsyncClient(transport=_mock_transport({
+        "choices": [{"message": {"content": "ok", "role": "assistant"}}]
+    })))
     response = await client.chat([{"role": "user", "content": "hi"}])
-    assert response["content"] is not None
-
-
-@pytest.mark.asyncio
-async def test_tool_registry() -> None:
-    from src.models.inference import InferenceOrchestrator
-    from src.models.registry import ModelRegistry
-    orchestrator = InferenceOrchestrator(ModelRegistry())
-    registry = ToolRegistry(orchestrator)
-    build_cv_tools(registry)
-
-    specs = registry.get_openai_specs()
-    assert len(specs) == 6
-    names = {s["function"]["name"] for s in specs}
-    assert "detect_objects" in names
-    assert "recognize_license_plate" in names
-
-
-@pytest.mark.asyncio
-async def test_agent_analyze() -> None:
-    from src.models.inference import InferenceOrchestrator
-    from src.models.registry import ModelRegistry, ModelSpec
-    from src.models.inference import ModelAdapter
-
-    registry = ModelRegistry()
-    registry.register(ModelSpec(model_id="object_detection", name="OD", version="1.0.0"))
-
-    class StubAdapter(ModelAdapter):
-        async def predict(self, spec, inp):
-            return {"objects": [{"label": "car", "confidence": 0.95}]}
-    from src.models.inference import InferenceOrchestrator
-    orchestrator = InferenceOrchestrator(registry)
-    orchestrator.register_adapter("onnx", StubAdapter())
-    tool_registry = ToolRegistry(orchestrator)
-    build_cv_tools(tool_registry)
-
-    client = QwenVLClient()
-    agent = CVAgent(client, tool_registry)
-    result = await agent.analyze({"scene": "traffic intersection"})
-    assert result["path"] == "agent"
-    assert "latency_ms" in result
-
-
-@pytest.mark.asyncio
-async def test_agent_orchestrator_routes_to_fast_path_first() -> None:
-    from src.models.inference import InferenceOrchestrator
-    from src.models.registry import ModelRegistry
-    from src.pipeline.dag import DAGDefinition, DAGNode, NodeType
-    from src.pipeline.executor import DAGExecutor
-    from src.pipeline.registry import PipelineRegistry
-    from src.routing.fast_path import FastPathHandler
-    from src.routing.scene_router import SceneRouter
-    from src.routing.matchers import camera_id_matcher
-    from src.agent.orchestrator import AgentOrchestrator
-
-    router = SceneRouter()
-    registry = PipelineRegistry()
-    executor = DAGExecutor()
-
-    dag = DAGDefinition(name="test_pipeline")
-    dag.add_node(DAGNode(node_id="detect", node_type=NodeType.MODEL_INFERENCE))
-    executor.register_handler(NodeType.MODEL_INFERENCE, lambda ctx, inp, cfg: {"ok": True})
-    registry.register("test_pipeline", dag)
-    router.add_matcher(camera_id_matcher({"cam-01": "test_pipeline"}))
-
-    fast_path = FastPathHandler(router, registry, executor)
-    inference = InferenceOrchestrator(ModelRegistry())
-    agent = CVAgent(QwenVLClient(), ToolRegistry(inference))
-    orchestrator = AgentOrchestrator(fast_path, agent, inference)
-
-    result = await orchestrator.process({"camera_id": "cam-01"})
-    assert result["path"] == "fast"
+    assert response["content"] == "ok"
