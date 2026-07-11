@@ -93,3 +93,93 @@ async def test_qwen_deepseek_defaults():
     })))
     response = await client.chat([{"role": "user", "content": "hi"}])
     assert response["content"] == "ok"
+
+
+@pytest.mark.asyncio
+async def test_agent_analyze_with_json_response():
+    """Agent parses JSON from content when no tool_calls returned."""
+    transport = httpx.MockTransport(lambda req: httpx.Response(200, json={
+        "choices": [{"message": {
+            "content": '{"scene_type": "traffic", "objects": [{"label": "car", "count": 3}], "anomalies": [], "summary": "busy intersection"}',
+            "role": "assistant",
+        }}]
+    }))
+    from src.agent.agent import CVAgent
+    from src.agent.tools import ToolRegistry
+    from src.models.inference import InferenceOrchestrator
+    from src.models.registry import ModelRegistry
+    client = QwenVLClient(http_client=httpx.AsyncClient(transport=transport))
+    agent = CVAgent(client, ToolRegistry(InferenceOrchestrator(ModelRegistry())))
+    result = await agent.analyze({"scene": "intersection"})
+    assert result["path"] == "agent"
+    assert "scene_type" in result["analysis"]
+    assert result["analysis"]["scene_type"] == "traffic"
+
+
+@pytest.mark.asyncio
+async def test_agent_analyze_with_image():
+    transport = httpx.MockTransport(lambda req: httpx.Response(200, json={
+        "choices": [{"message": {
+            "content": '{"scene_type": "office", "objects": [], "anomalies": [], "summary": "empty room"}',
+            "role": "assistant",
+        }}]
+    }))
+    from src.agent.agent import CVAgent
+    from src.agent.tools import ToolRegistry
+    from src.models.inference import InferenceOrchestrator
+    from src.models.registry import ModelRegistry
+    client = QwenVLClient(http_client=httpx.AsyncClient(transport=transport))
+    agent = CVAgent(client, ToolRegistry(InferenceOrchestrator(ModelRegistry())))
+    result = await agent.analyze({"scene": "office"}, image_data=b"fake_image")
+    assert result["path"] == "agent"
+    assert result["analysis"]["scene_type"] == "office"
+
+
+@pytest.mark.asyncio
+async def test_agent_executes_tool_calls():
+    """Agent executes tools returned by LLM and includes results."""
+    transport = httpx.MockTransport(lambda req: httpx.Response(200, json={
+        "choices": [{"message": {
+            "content": None,
+            "role": "assistant",
+            "tool_calls": [
+                {"id": "call_1", "type": "function",
+                 "function": {"name": "detect_objects", "arguments": '{"image": "base64"}'}}
+            ],
+        }}]
+    }))
+    from src.agent.agent import CVAgent
+    from src.agent.tools import ToolRegistry, build_cv_tools
+    from src.models.inference import InferenceOrchestrator
+    from src.models.registry import ModelRegistry
+
+    class StubAdapter:
+        async def predict(self, spec, inp):
+            return {"output": {"objects": [{"label": "person"}]}}
+    registry = ModelRegistry()
+    from src.models.registry import ModelSpec
+    registry.register(ModelSpec(model_id="object_detection", name="OD", version="1.0.0"))
+    orchestrator = InferenceOrchestrator(registry)
+    orchestrator.register_adapter("onnx", StubAdapter())
+    tool_registry = ToolRegistry(orchestrator)
+    build_cv_tools(tool_registry)
+
+    client = QwenVLClient(http_client=httpx.AsyncClient(transport=transport))
+    agent = CVAgent(client, tool_registry)
+    result = await agent.analyze({"scene": "intersection"})
+    assert result["path"] == "agent"
+    assert "detect_objects" in result["tool_results"]
+
+
+@pytest.mark.asyncio
+async def test_extract_json_from_code_block():
+    from src.agent.agent import _extract_json
+    text = "Some text\n```json\n{\"key\": \"value\"}\n```\nmore text"
+    assert _extract_json(text) == {"key": "value"}
+
+
+@pytest.mark.asyncio
+async def test_extract_json_direct():
+    from src.agent.agent import _extract_json
+    text = '{"key": "value"}'
+    assert _extract_json(text) == {"key": "value"}
