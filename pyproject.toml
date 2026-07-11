@@ -5,6 +5,8 @@ description = "AI Algorithm Scheduling Middle Platform - 大小模型协同的 C
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "aiosqlite>=0.22.1",
+    "alembic>=1.18.5",
     "fastapi>=0.139.0",
     "httpx>=0.28.1",
     "onnxruntime>=1.27.0",
@@ -17,6 +19,7 @@ dependencies = [
     "python-jose[cryptography]>=3.5.0",
     "pyyaml>=6.0.3",
     "redis>=8.0.1",
+    "sqlalchemy>=2.0.51",
     "uvicorn[standard]>=0.51.0",
 ]
 
@@ -30,3 +33,6 @@ dev = [
     "pytest>=9.1.1",
     "pytest-asyncio>=1.4.0",
 ]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
