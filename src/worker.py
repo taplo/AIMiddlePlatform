@@ -93,6 +93,10 @@ class Worker:
         global _inference
         _inference = _init_inference()
         _, _, _, self.fast_path = _init_fast_path()
+        tool_registry = ToolRegistry(_inference)
+        build_cv_tools(tool_registry)
+        agent = CVAgent(QwenVLClient(), tool_registry)
+        self.orchestrator = AgentOrchestrator(self.fast_path, agent, _inference)
 
     async def process_one(self, message: dict) -> dict:
         task_id = message.get("task_id", "unknown")
@@ -103,7 +107,10 @@ class Worker:
 
         latency = (asyncio.get_event_loop().time() - start) * 1000
         if result is None:
-            result = {"path": "agent", "analysis": "stub", "latency_ms": latency}
+            frame_raw = message.get("frame", "")
+            image = _decode_frame(frame_raw) if frame_raw else None
+            result = await self.orchestrator.agent.analyze(message, image_data=image)
+            result.setdefault("latency_ms", latency)
         else:
             result.setdefault("latency_ms", latency)
 
