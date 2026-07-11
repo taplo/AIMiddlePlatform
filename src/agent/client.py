@@ -100,6 +100,28 @@ class QwenVLClient(LLMClient):
         }
         return await self._call(body, tools)
 
+    async def verify(
+        self,
+        image_data: bytes,
+        label: str,
+        confidence: float,
+    ) -> dict:
+        from src.agent.agent import _extract_json
+        prompt = (
+            f"这张图片被检测为「{label}」，置信度 {confidence:.1%}。"
+            f"请确认这个目标是否正确。如果正确，返回 verified=true；"
+            f"如果错误，返回 verified=false 并给出正确的 label。"
+            f"用 JSON 格式回答：{{verified: bool, corrected_label: str, reason: str}}"
+        )
+        response = await self.chat_with_image(prompt, image_data)
+        content = response.get("content", "")
+        parsed = _extract_json(content) or {}
+        return {
+            "verified": parsed.get("verified", False),
+            "corrected_label": parsed.get("corrected_label", label),
+            "reason": parsed.get("reason", ""),
+        }
+
     async def _call(self, body: dict, tools: list[dict] | None) -> dict:
         if tools:
             body["tools"] = tools

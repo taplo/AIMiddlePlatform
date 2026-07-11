@@ -183,3 +183,43 @@ async def test_extract_json_direct():
     from src.agent.agent import _extract_json
     text = '{"key": "value"}'
     assert _extract_json(text) == {"key": "value"}
+
+
+@pytest.mark.asyncio
+async def test_qwen_verify_accepted():
+    transport = httpx.MockTransport(lambda req: httpx.Response(200, json={
+        "choices": [{"message": {
+            "content": '{"verified": true, "corrected_label": "person", "reason": "clearly visible"}',
+            "role": "assistant",
+        }}]
+    }))
+    client = QwenVLClient(http_client=httpx.AsyncClient(transport=transport))
+    result = await client.verify(b"fake_image", "person", 0.65)
+    assert result["verified"] is True
+    assert result["corrected_label"] == "person"
+
+
+@pytest.mark.asyncio
+async def test_qwen_verify_rejected():
+    transport = httpx.MockTransport(lambda req: httpx.Response(200, json={
+        "choices": [{"message": {
+            "content": '{"verified": false, "corrected_label": "dog", "reason": "not a person, it is a dog"}',
+            "role": "assistant",
+        }}]
+    }))
+    client = QwenVLClient(http_client=httpx.AsyncClient(transport=transport))
+    result = await client.verify(b"fake_image", "person", 0.55)
+    assert result["verified"] is False
+    assert result["corrected_label"] == "dog"
+
+
+@pytest.mark.asyncio
+async def test_qwen_verify_fallback_on_parse_failure():
+    """If LLM returns non-JSON, verify() should return defaults."""
+    transport = httpx.MockTransport(lambda req: httpx.Response(200, json={
+        "choices": [{"message": {"content": "I see a person in this image", "role": "assistant"}}]
+    }))
+    client = QwenVLClient(http_client=httpx.AsyncClient(transport=transport))
+    result = await client.verify(b"fake_image", "person", 0.65)
+    assert result["verified"] is False
+    assert result["corrected_label"] == "person"
