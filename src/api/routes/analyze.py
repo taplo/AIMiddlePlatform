@@ -40,7 +40,6 @@ async def analyze_frame(
         raise HTTPException(413, "Frame too large (max 10MB)")
 
     if sync:
-        from src.agent.orchestrator import AgentOrchestrator
         orchestrator = getattr(analyze_frame, "_orchestrator", None)
         if orchestrator is None:
             raise HTTPException(500, "Orchestrator not initialized in sync mode")
