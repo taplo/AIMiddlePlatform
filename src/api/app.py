@@ -82,7 +82,14 @@ async def lifespan(app: FastAPI):
     condition_handler.init_session_factory(session_factory)
     _init_components()
     init_log_buffer(maxlen=2000)
+    from src.core.redis_client import get_redis, close_redis
+    try:
+        await get_redis()
+        logger.info("Redis connection established")
+    except Exception as e:
+        logger.warning("Redis unavailable: %s", e)
     yield
+    await close_redis()
 
 
 def _decode_frame(frame: str) -> "np.ndarray | None":

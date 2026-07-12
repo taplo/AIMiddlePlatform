@@ -20,6 +20,12 @@ cache:
   max_duration: 5
   buffer_size_mb: 512
 
+result_cache:
+  enabled: true
+  ttl_seconds: 60
+  hash_threshold: 8
+  max_candidates: 20
+
 llm:
   api_url: https://api.siliconflow.cn/v1
   api_key: ""
