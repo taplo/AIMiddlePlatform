@@ -52,6 +52,10 @@ class CVAgent:
     async def _get_cache(self):
         if not hasattr(self, "_cache") or self._cache is None:
             try:
+                from src.core.config import settings
+                if not settings.get("result_cache.enabled", True):
+                    self._cache = None
+                    return None
                 from src.cache.result_cache import ResultCache
                 from src.core.redis_client import get_redis
                 redis = await get_redis()

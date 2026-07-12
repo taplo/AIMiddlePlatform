@@ -22,11 +22,17 @@ def _get_verify_client():
     return _verify_client
 
 
+_verify_ttl = 60
+
+
 def _get_verify_cache():
-    global _verify_cache
+    global _verify_cache, _verify_ttl
     if _verify_cache is None:
-        import redis as sync_redis
         from src.core.config import settings
+        if not settings.get("result_cache.enabled", True):
+            return None
+        _verify_ttl = settings.get("result_cache.ttl_seconds", 60)
+        import redis as sync_redis
         redis_url = settings.get("queue.redis_url", "redis://localhost:6379/0")
         _verify_cache = sync_redis.from_url(redis_url)
     return _verify_cache
@@ -113,16 +119,17 @@ def verify_handler(context: dict, input_data: dict, node_config: dict) -> dict:
                 det["verification_reason"] = result.get("reason", "")
 
                 try:
-                    cache_entry = json.dumps({
-                        "result": result,
-                        "created_at": time.time(),
-                        "context_hash": context_str,
-                    })
-                    cache.set(exact_key, cache_entry, ex=60)
-                    camera_set_key = f"cache:camera:{context.get('camera_id', '')}:hashes"
-                    cache.zadd(camera_set_key, {f"{frame_hash}:{context_str}": time.time()})
-                    cache.expire(camera_set_key, 60)
-                    cache.incr("cache:stats:misses")
+                    if cache:
+                        cache_entry = json.dumps({
+                            "result": result,
+                            "created_at": time.time(),
+                            "context_hash": context_str,
+                        })
+                        cache.set(exact_key, cache_entry, ex=_verify_ttl)
+                        camera_set_key = f"cache:camera:{context.get('camera_id', '')}:hashes"
+                        cache.zadd(camera_set_key, {f"{frame_hash}:{context_str}": time.time()})
+                        cache.expire(camera_set_key, _verify_ttl)
+                        cache.incr("cache:stats:misses")
                 except Exception:
                     logger.debug("Cache store failed", exc_info=True)
             except Exception as e:
