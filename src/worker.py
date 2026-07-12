@@ -28,6 +28,77 @@ from src.agent.agent import CVAgent
 logger = logging.getLogger(__name__)
 
 
+def _extract_detections(results: dict | None) -> list[dict]:
+    """Extract flat list of detections from DAG execution results."""
+    dets: list[dict] = []
+    if isinstance(results, dict):
+        all_dets = results.get("all_detections", [])
+        if all_dets and isinstance(all_dets, list):
+            dets.extend(all_dets)
+        for v in results.values():
+            if isinstance(v, dict) and "detections" in v:
+                dets.extend(v["detections"])
+    return dets
+
+
+async def _evaluate_rules_for_task(
+    db_engine: AsyncEngine, task_id: str, camera_id: str, result: dict
+) -> None:
+    from src.pipeline.rule_engine import RuleEngine, CameraRuleState, Detection
+    from src.core.database import Rule, RuleBinding, Alert
+
+    engine = RuleEngine()
+    state = CameraRuleState()
+
+    detections = _extract_detections(result)
+    detection_objects = [
+        Detection(
+            bbox=tuple(d["bbox"]),
+            confidence=d.get("confidence", 0.0),
+            label=d.get("label", "unknown"),
+            track_id=d.get("track_id"),
+        )
+        for d in detections if isinstance(d, dict) and "bbox" in d
+    ]
+
+    async with AsyncSession(db_engine) as session:
+        stmt = select(RuleBinding).where(RuleBinding.enabled == True)
+        bindings = (await session.execute(stmt)).scalars().all()
+
+        for binding in bindings:
+            if binding.camera_id and binding.camera_id != camera_id:
+                continue
+            if not binding.camera_id and binding.scene_type and binding.scene_type != result.get("scene_type"):
+                continue
+
+            rule = await session.get(Rule, binding.rule_id)
+            if not rule or not rule.enabled:
+                continue
+
+            result_eval = engine.evaluate(rule, binding, camera_id, detection_objects, state)
+            if result_eval and result_eval.triggered:
+                dup_check = select(Alert).where(Alert.task_id == task_id, Alert.rule_id == rule.id)
+                existing = (await session.execute(dup_check)).scalars().first()
+                if existing:
+                    continue
+
+                alert = Alert(
+                    task_id=task_id,
+                    alert_type=result_eval.rule_type,
+                    label=rule.name,
+                    bbox=json.dumps(result_eval.matches) if result_eval.matches else None,
+                    confidence=max((d.confidence for d in detection_objects), default=0.0),
+                    verified_by="model",
+                    status="pending",
+                    rule_id=rule.id,
+                    binding_id=binding.id,
+                    metadata_=json.dumps(result_eval.details),
+                )
+                session.add(alert)
+
+        await session.commit()
+
+
 def _init_inference() -> InferenceOrchestrator:
     registry = ModelRegistry()
     register_default_models(registry)
@@ -146,6 +217,8 @@ class Worker:
             )
             session.add(task)
             await session.commit()
+
+        asyncio.create_task(_evaluate_rules_for_task(self.db, task_id, camera_id, result))
 
 
 async def run_worker(db_url: str = "sqlite+aiosqlite:///data/aimp.db"):
