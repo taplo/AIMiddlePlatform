@@ -1,3 +1,4 @@
+import hashlib
 import json
 import logging
 import time
@@ -48,11 +49,42 @@ class CVAgent:
         self.llm = llm_client
         self.tools = tool_registry
 
+    async def _get_cache(self):
+        if not hasattr(self, "_cache") or self._cache is None:
+            try:
+                from src.cache.result_cache import ResultCache
+                from src.core.redis_client import get_redis
+                redis = await get_redis()
+                self._cache = ResultCache(redis)
+            except Exception as e:
+                logger.warning("cache unavailable: %s", e)
+                self._cache = None
+        return self._cache
+
     async def analyze(
         self,
         scene_context: dict[str, Any],
         image_data: bytes | None = None,
     ) -> dict[str, Any]:
+        camera_id = scene_context.get("camera_id", "")
+        context_hash = hashlib.sha256(SYSTEM_PROMPT.encode()).hexdigest()[:16]
+        frame_hash = ""
+        cache = None
+
+        if image_data:
+            from src.cache.frame_hasher import FrameHasher
+            hasher = FrameHasher()
+            frame_hash = hasher.compute(image_data)
+
+            cache = await self._get_cache()
+            if cache:
+                try:
+                    cached = await cache.get(camera_id, frame_hash, context_hash)
+                    if cached:
+                        return cached.result
+                except Exception as e:
+                    logger.warning("cache get failed: %s", e)
+
         start = time.monotonic()
         tool_specs = self.tools.get_openai_specs()
         messages = [
@@ -85,12 +117,20 @@ class CVAgent:
 
         elapsed = (time.monotonic() - start) * 1000
 
-        return {
+        result = {
             "path": "agent",
             "analysis": analysis,
             "tool_results": tool_results,
             "latency_ms": elapsed,
         }
+
+        if cache and image_data and frame_hash:
+            try:
+                await cache.set(camera_id, frame_hash, result, context_hash)
+            except Exception as e:
+                logger.warning("cache set failed: %s", e)
+
+        return result
 
     async def analyze_with_image(
         self,
