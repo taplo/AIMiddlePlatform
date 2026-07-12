@@ -6,6 +6,7 @@ from collections.abc import AsyncIterator
 import redis.asyncio as aioredis
 
 from src.core.config import settings
+from src.core.redis_client import get_redis
 from src.queue.interface import FrameQueue
 
 logger = logging.getLogger(__name__)
@@ -13,15 +14,11 @@ logger = logging.getLogger(__name__)
 
 class RedisStreamQueue(FrameQueue):
     def __init__(self) -> None:
-        self._redis: aioredis.Redis | None = None
         self._consumer_group = settings.get("queue.consumer_group", "ingestion_workers")
         self._consumer_id = f"worker-{id(self)}"
 
     async def _ensure_redis(self) -> aioredis.Redis:
-        if self._redis is None:
-            redis_url = settings.get("queue.redis_url", "redis://localhost:6379/0")
-            self._redis = await aioredis.from_url(redis_url)
-        return self._redis
+        return await get_redis()
 
     async def push(self, camera_id: str, data: bytes) -> None:
         r = await self._ensure_redis()
