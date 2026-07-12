@@ -30,6 +30,8 @@ from src.pipeline.registry import PipelineRegistry
 from src.pipeline.executor import DAGExecutor
 from src.pipeline.dag import DAGDefinition, DAGNode, NodeType
 from src.pipeline.verify_handler import verify_handler
+from src.pipeline.aggregate_handler import aggregate_handler
+from src.pipeline.condition_handler import condition_handler
 from src.routing.fast_path import FastPathHandler
 from src.agent.client import QwenVLClient
 from src.agent.tools import ToolRegistry, build_cv_tools
@@ -74,6 +76,7 @@ async def lifespan(app: FastAPI):
     analyze_route.init_db_session_factory(session_factory)
     tasks_route.init_db_session_factory(session_factory)
     alerts_route.init_db_session_factory(session_factory)
+    condition_handler.init_session_factory(session_factory)
     _init_components()
     init_log_buffer(maxlen=2000)
     yield
@@ -124,6 +127,8 @@ def _init_components() -> None:
     executor = DAGExecutor()
     executor.register_handler(NodeType.MODEL_INFERENCE, _inference_handler)
     executor.register_handler(NodeType.VERIFY, verify_handler)
+    executor.register_handler(NodeType.AGGREGATE, aggregate_handler)
+    executor.register_handler(NodeType.CONDITION, condition_handler)
     _register_default_pipelines(pipeline_registry)
     logger.info("Registered %d pipelines", len(pipeline_registry.list()))
     init_pipeline_registry(pipeline_registry)
