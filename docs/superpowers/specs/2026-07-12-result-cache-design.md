@@ -168,7 +168,7 @@ cache:stats:misses
     await cache.set(camera_id, frame_hash, result, context_hash)
 ```
 
-注意：Agent 路径缓存需要额外考虑——当 frame 相似但 prompt 不同时（工具列表变化），应视为不同 context。因此 context_hash 必须包含 system_prompt 或工具列表的摘要。
+注意：Agent 路径缓存需要额外考虑——当 frame 相似但 prompt 不同时（工具列表变化），应视为不同 context。因此 context_hash = sha256(system_prompt)[:16]，取前 16 位 hex 作为标识。
 
 ### 2.6 配置
 
@@ -226,6 +226,6 @@ result_cache:
 | `src/pipeline/verify_handler.py` | 修改 (集成缓存) |
 | `src/agent/orchestrator.py` | 修改 (集成缓存) |
 | `src/core/config.py` | 修改 (添加缓存配置) |
-| `src/core/redis.py` | 可能需修改 (导出 Redis client) |
+| `src/core/redis.py` | 修改 (导出全局 `redis_client`，供缓存和队列共用) |
 | `tests/test_result_cache.py` | 新建 (单元测试) |
 | `tests/test_cache_integration.py` | 新建 (集成测试) |
