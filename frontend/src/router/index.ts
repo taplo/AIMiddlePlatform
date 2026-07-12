@@ -17,6 +17,8 @@ const router = createRouter({
         { path: 'logs', name: 'Logs', component: () => import('@/views/Logs/Index.vue') },
         { path: 'traces', name: 'Traces', component: () => import('@/views/Traces/Index.vue') },
         { path: 'traces/:traceId', name: 'TraceDetail', component: () => import('@/views/Traces/Detail.vue') },
+        { path: 'tasks', name: 'Tasks', component: () => import('@/views/Tasks/Index.vue') },
+        { path: 'alerts', name: 'Alerts', component: () => import('@/views/Alerts/Index.vue') },
       ],
     },
   ],

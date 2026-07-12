@@ -69,6 +69,17 @@ def register_default_models(registry: ModelRegistry) -> None:
             cost_estimate="medium",
             tags=["reid", "person"],
         ),
+        ModelSpec(
+            model_id="yolo_world",
+            name="YOLO-World 开放词汇检测",
+            description="开放词汇目标检测，支持文本提示驱动的任意目标检测",
+            version="1.0.0",
+            backend="onnx",
+            input_schema={"type": "image", "format": "np_array"},
+            output_schema={"type": "detections", "fields": ["bbox", "label", "confidence"]},
+            cost_estimate="medium",
+            tags=["detection", "open_vocabulary"],
+        ),
     ]
 
     for m in models:

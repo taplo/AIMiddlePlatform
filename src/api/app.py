@@ -20,7 +20,12 @@ from src.models.registry import ModelRegistry
 from src.models.inference import InferenceOrchestrator
 from src.models.presets import register_default_models
 from src.models.adapters.yolov8_adapter import YOLOv8Adapter
+from src.models.adapters.yolo_world_adapter import YOLOWorldAdapter
 from src.routing.scene_router import SceneRouter
+from src.frame_preprocessor.processor import FramePreprocessor
+from src.frame_preprocessor.quality_filter import FrameQualityFilter
+from src.frame_preprocessor.adaptive_sampler import AdaptiveFrameSampler
+from src.frame_preprocessor.yolo_world import YOLOWorldSceneClassifier
 from src.pipeline.registry import PipelineRegistry
 from src.pipeline.executor import DAGExecutor
 from src.pipeline.dag import DAGDefinition, DAGNode, NodeType
@@ -42,6 +47,18 @@ from src.api.routes.admin.traces import router as admin_traces_router
 from src.monitoring.log_buffer import init_log_buffer
 from src.monitoring.trace_store import init_trace_store
 from src.monitoring.tracing import add_trace_store_exporter
+from src.api.routes import video_cache as video_cache_route
+from src.api.routes import alerts as alerts_route
+from src.api.routes import api_keys as api_keys_route
+from src.ingestion.video_cache import init_cache as init_video_cache, get_cache as get_video_cache
+from src.core.security import (
+    init_security,
+    is_business_path,
+    is_admin_path,
+    is_exempt_path,
+    get_api_key_store,
+    get_rate_limiter,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +73,7 @@ async def lifespan(app: FastAPI):
     session_factory = async_sessionmaker(db_engine, expire_on_commit=False)
     analyze_route.init_db_session_factory(session_factory)
     tasks_route.init_db_session_factory(session_factory)
+    alerts_route.init_db_session_factory(session_factory)
     _init_components()
     init_log_buffer(maxlen=2000)
     yield
@@ -98,6 +116,7 @@ def _init_components() -> None:
 
     inference = InferenceOrchestrator(model_registry)
     inference.register_adapter("onnx", YOLOv8Adapter(model_dir="models"))
+    inference.register_adapter("onnx", YOLOWorldAdapter(model_dir="models"))
     _inference_orchestrator = inference
     logger.info("Initialized inference orchestrator")
 
@@ -129,6 +148,20 @@ def _init_components() -> None:
     init_queue(queue)
     analyze_route.init_queue(queue)
     logger.info("Initialized RedisStreamQueue")
+
+    preprocessor = FramePreprocessor(
+        quality_filter=FrameQualityFilter(),
+        sampler=AdaptiveFrameSampler(),
+        scene_classifier=YOLOWorldSceneClassifier(model_dir="models"),
+    )
+    analyze_route.init_preprocessor(preprocessor)
+    logger.info("Initialized frame preprocessor")
+
+    init_video_cache(default_duration=30.0, max_memory=500 * 1024 * 1024)
+    logger.info("Initialized video cache")
+
+    init_security()
+    logger.info("Initialized security layer")
 
 
 def _register_default_pipelines(registry: PipelineRegistry) -> None:
@@ -185,20 +218,51 @@ app.include_router(admin_agent_router)
 app.include_router(admin_pipelines_router)
 app.include_router(admin_logs_router)
 app.include_router(admin_traces_router)
+app.include_router(video_cache_route.router)
+app.include_router(alerts_route.router)
+app.include_router(api_keys_route.router)
 
 
 @app.middleware("http")
-async def admin_auth_middleware(request: Request, call_next):
-    if request.url.path.startswith("/api/v1/") and request.url.path not in ("/api/v1/auth/login", "/api/v1/auth/refresh"):
-        auth = request.headers.get("Authorization", "")
-        if not auth.startswith("Bearer "):
-            return Response('{"detail":"Not authenticated"}', 401, media_type="application/json")
+async def auth_middleware(request: Request, call_next):
+    path = request.url.path
+
+    if is_exempt_path(path) or not (is_admin_path(path) or is_business_path(path)):
+        return await call_next(request)
+
+    requires_admin = is_admin_path(path)
+    auth_header = request.headers.get("Authorization", "")
+    api_key = request.headers.get("X-API-Key", "")
+
+    if auth_header.startswith("Bearer "):
         try:
-            token = auth.split(" ", 1)[1]
+            token = auth_header.split(" ", 1)[1]
             get_current_user(token)
         except HTTPException:
             return Response('{"detail":"Invalid token"}', 401, media_type="application/json")
-    return await call_next(request)
+        return await call_next(request)
+
+    if api_key:
+        if requires_admin:
+            return Response('{"detail":"Admin access requires JWT, not API key"}', 403, media_type="application/json")
+        store = get_api_key_store()
+        info = store.validate(api_key)
+        if info is None:
+            return Response('{"detail":"Invalid API key"}', 401, media_type="application/json")
+        limiter = get_rate_limiter()
+        allowed, remaining = limiter.check(api_key, info["rate_per_second"])
+        if not allowed:
+            return Response(
+                '{"detail":"Rate limit exceeded"}',
+                429,
+                media_type="application/json",
+                headers={"Retry-After": "1"},
+            )
+        resp = await call_next(request)
+        resp.headers["X-RateLimit-Remaining"] = str(remaining)
+        return resp
+
+    return Response('{"detail":"Authentication required"}', 401, media_type="application/json")
 
 
 @app.get("/metrics")

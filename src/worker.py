@@ -14,7 +14,9 @@ from src.models.inference import InferenceOrchestrator
 from src.models.registry import ModelRegistry
 from src.models.presets import register_default_models
 from src.models.adapters.yolov8_adapter import YOLOv8Adapter
+from src.models.adapters.yolo_world_adapter import YOLOWorldAdapter
 from src.pipeline.registry import PipelineRegistry
+from src.ingestion.video_cache import get_cache as get_video_cache
 from src.pipeline.executor import DAGExecutor
 from src.pipeline.dag import DAGDefinition, DAGNode, NodeType
 from src.pipeline.verify_handler import verify_handler
@@ -31,6 +33,7 @@ def _init_inference() -> InferenceOrchestrator:
     register_default_models(registry)
     inference = InferenceOrchestrator(registry)
     inference.register_adapter("onnx", YOLOv8Adapter(model_dir="models"))
+    inference.register_adapter("onnx", YOLOWorldAdapter(model_dir="models"))
     return inference
 
 
@@ -105,16 +108,27 @@ class Worker:
         camera_id = message.get("camera_id", "unknown")
         start = asyncio.get_event_loop().time()
 
+        frame_raw = message.get("frame", "")
+        image = _decode_frame(frame_raw) if frame_raw else None
+
         result = await self.fast_path.process(message)
 
         latency = (asyncio.get_event_loop().time() - start) * 1000
         if result is None:
-            frame_raw = message.get("frame", "")
-            image = _decode_frame(frame_raw) if frame_raw else None
             result = await self.orchestrator.agent.analyze(message, image_data=image)
             result.setdefault("latency_ms", latency)
         else:
             result.setdefault("latency_ms", latency)
+
+        if image is not None:
+            try:
+                cache = get_video_cache()
+                cache.push(camera_id, image, task_id=task_id, metadata={
+                    "path": result.get("path", "unknown"),
+                    "detection_count": len(result.get("results", {}).get("detections", [])) if isinstance(result.get("results"), dict) else 0,
+                })
+            except Exception:
+                logger.warning("Failed to cache frame for %s", camera_id)
 
         await self._save_result(task_id, camera_id, result)
         return result
