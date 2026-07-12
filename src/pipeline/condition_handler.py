@@ -19,9 +19,14 @@ def init_session_factory(factory):
 async def condition_handler(context: dict, input_data: dict, node_config: dict) -> dict:
     rule_refs: list[int] = node_config.get("rule_refs", [])
     camera_id = context.get("camera_id", "")
+    scene_type = context.get("scene_type", "")
     task_id = context.get("task_id", "")
 
     if not rule_refs:
+        return {"condition_results": [], "triggered": False}
+
+    if _session_factory is None:
+        logger.error("condition_handler: _session_factory not initialized")
         return {"condition_results": [], "triggered": False}
 
     rule_engine = RuleEngine()
@@ -30,7 +35,7 @@ async def condition_handler(context: dict, input_data: dict, node_config: dict) 
     condition_results: list[dict] = []
     triggered = False
 
-    async with AsyncSession(_session_factory) as session:
+    async with _session_factory() as session:
         for rule_id in rule_refs:
             stmt = select(RuleBinding).where(
                 RuleBinding.rule_id == rule_id,
@@ -41,6 +46,8 @@ async def condition_handler(context: dict, input_data: dict, node_config: dict) 
 
             for binding in bindings:
                 if binding.camera_id and binding.camera_id != camera_id:
+                    continue
+                if not binding.camera_id and binding.scene_type and binding.scene_type != scene_type:
                     continue
 
                 rule = await session.get(Rule, rule_id)
