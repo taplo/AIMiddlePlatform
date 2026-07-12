@@ -1,7 +1,7 @@
 from datetime import datetime
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
-from sqlalchemy import String, Integer, Float, Text, DateTime, func
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy import String, Integer, Float, Text, DateTime, Boolean, ForeignKey, func
 
 
 class Base(DeclarativeBase):
@@ -33,7 +33,33 @@ class Alert(Base):
     confidence: Mapped[float] = mapped_column(Float)
     verified_by: Mapped[str] = mapped_column(String(16), default="model")
     status: Mapped[str] = mapped_column(String(16), default="pending")
+    rule_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("rules.id"), nullable=True)
+    binding_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    metadata_: Mapped[str | None] = mapped_column("metadata", Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class Rule(Base):
+    __tablename__ = "rules"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(128))
+    rule_type: Mapped[str] = mapped_column(String(32))
+    config: Mapped[str] = mapped_column(Text)
+    severity: Mapped[str] = mapped_column(String(16), default="medium")
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    description: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class RuleBinding(Base):
+    __tablename__ = "rule_bindings"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    rule_id: Mapped[int] = mapped_column(Integer, ForeignKey("rules.id", ondelete="CASCADE"))
+    camera_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    scene_type: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    config_overrides: Mapped[str | None] = mapped_column(Text, nullable=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
 _engine = None
