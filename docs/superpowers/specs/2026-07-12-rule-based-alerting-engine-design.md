@@ -1,14 +1,14 @@
-# Rule-Based Alerting Engine Design
+# 规则告警引擎设计
 
-> 规则告警引擎：基于 CONDITION 节点 + 独立 Rule 注册表 + AGGREGATE 节点，实现区域入侵、逗留检测、数量阈值等告警规则。
+> 基于 CONDITION 节点 + 独立 Rule 注册表 + AGGREGATE 节点，实现区域入侵、逗留检测、数量阈值等告警规则。
 
-## Status
+## 状态
 
-- **Phase:** Design (pre-implementation)
-- **Priority:** High (next deliverable after P0-P6)
-- **Design Date:** 2026-07-12
+- **阶段:** 设计（实现前）
+- **优先级:** 高（P0-P6 之后的下一个交付）
+- **设计日期:** 2026-07-12
 
-## 1. Architecture
+## 1. 整体架构
 
 ```
 POST /v1/analyze/frame
@@ -16,45 +16,45 @@ POST /v1/analyze/frame
   → Redis Stream
   → Worker
       → FastPath (DAGExecutor)
-          → MODEL_INFERENCE → [detections]
-          → AGGREGATE       → [merged detections]
-          → CONDITION       → [RuleEngine.evaluate() → Alert DB]
+          → MODEL_INFERENCE → [检测结果]
+          → AGGREGATE       → [合并检测结果]
+          → CONDITION       → [RuleEngine.evaluate() → 写入 Alert 表]
           → OUTPUT
       → Agent (fallback)
-  → _save_result() [also evaluates rules and creates Alerts]
+  → _save_result() [同时兜底评估规则并创建 Alert]
 ```
 
-Two paths for alert creation:
-- **DAG with CONDITION handler**: RuleEngine evaluates after AGGREGATE merges results; matched rules write Alert records immediately.
-- **DAG without CONDITION / Agent path**: Worker `_save_result()` queries RuleBindings for the camera_id and evaluates rules as a fallback.
+两条告警路径：
+- **DAG 含 CONDITION handler**: AGGREGATE 合并多模型输出后，RuleEngine 当场评估；匹配则写入 Alert 表。
+- **DAG 不含 CONDITION / Agent 路径**: Worker `_save_result()` 查询该 camera_id 绑定的规则，兜底评估并创建 Alert。
 
-## 2. Data Models
+## 2. 数据模型
 
-### 2.1 Rule (rule definition)
+### 2.1 Rule（规则定义）
 
 ```python
 class Rule(Base):
     __tablename__ = "rules"
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    name: Mapped[str] = mapped_column(String(128))
-    rule_type: Mapped[str] = mapped_column(String(32))  # region_intrusion | loitering | count_threshold
-    config: Mapped[str] = mapped_column(Text)  # JSON: polygon, thresholds, duration, etc.
-    severity: Mapped[str] = mapped_column(String(16), default="medium")
+    name: Mapped[str] = mapped_column(String(128))          # 规则名称
+    rule_type: Mapped[str] = mapped_column(String(32))       # region_intrusion | loitering | count_threshold
+    config: Mapped[str] = mapped_column(Text)                # JSON：多边形坐标、阈值、持续时间等
+    severity: Mapped[str] = mapped_column(String(16), default="medium")  # low / medium / high / critical
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     description: Mapped[str | None] = mapped_column(String(512), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 ```
 
-**Rule types and their config structures:**
+**规则类型及 config 结构：**
 
-| rule_type | config fields |
+| rule_type | config 字段 |
 |---|---|
 | `region_intrusion` | `{"polygon": [[x1,y1],...,[xn,yn]], "alert_on": "enter"` / `"exit"` / `"both"` |
 | `loitering` | `{"polygon": [[x1,y1],...,[xn,yn]], "duration_seconds": 30, "alert_on_enter": true}` |
-| `count_threshold` | `{"polygon": [[...]]` (optional), `"min": 0, "max": 10, "direction": "above"` / `"below"` / `"within"` |
+| `count_threshold` | `{"polygon": [[...]]` (可选), `"min": 0, "max": 10, "direction": "above"` / `"below"` / `"within"` |
 
-### 2.2 RuleBinding (rule → camera/scene assignment)
+### 2.2 RuleBinding（规则绑定）
 
 ```python
 class RuleBinding(Base):
@@ -63,27 +63,29 @@ class RuleBinding(Base):
     rule_id: Mapped[int] = mapped_column(Integer, ForeignKey("rules.id", ondelete="CASCADE"))
     camera_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     scene_type: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    config_overrides: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON partial overrides
+    config_overrides: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON 部分覆盖
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
 ```
 
-Constraints: at least one of `camera_id` / `scene_type` must be non-null. When both are set, it's a refined binding for "this camera under this scene type". Binding resolution: (1) exact camera+scene match, (2) exact camera match, (3) exact scene match.
+约束：`camera_id` 和 `scene_type` 至少一个非空。两者都非空时表示"该场景下的该摄像头"的细化绑定。
 
-### 2.3 Alert extension
+绑定解析优先级：精确 camera+scene → 精确 camera → 精确 scene。
 
-Add optional fields to existing Alert model:
+### 2.3 Alert 扩展
+
+为现有 Alert 模型增加可选字段：
 
 ```python
 rule_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("rules.id"), nullable=True)
 binding_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
-metadata: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON: evaluation context
+metadata: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON：规则评估上下文
 ```
 
-Backward compatible: existing quality_rejected alerts remain with null rule_id.
+向后兼容：现有的 quality_rejected 告警保持 rule_id 为 null。
 
-## 3. RuleEngine
+## 3. 规则引擎
 
-### 3.1 Evaluation Signatures
+### 3.1 评估接口
 
 ```python
 class RuleEngine:
@@ -96,39 +98,33 @@ class RuleEngine:
         frame_context: FrameContext,
         state: CameraRuleState,
     ) -> RuleEvaluationResult | None:
-        """Evaluate a single rule against current frame detections.
-        Returns None if no match, or RuleEvaluationResult if triggered."""
+        """评估单条规则。返回 None（不匹配）或 RuleEvaluationResult（触发）。"""
 ```
 
-### 3.2 Rule Type Logic
+### 3.2 规则类型逻辑
 
-#### region_intrusion
+#### region_intrusion（区域入侵）
 
-- Input: detection bboxes
-- Check if centroid of each bbox falls inside the configured polygon (ray-casting)
-- Compare against previous frame state: was the object already inside?
-- `enter` → alert when object was outside and now inside
-- `exit` → alert when object was inside and now outside
-- Requires cross-frame tracking state per (camera_id, binding_id)
+- 输入：目标检测框列表
+- 对每个检测框，计算中心点与多边形的位置关系（ray-casting 算法）
+- 与上一帧状态对比：之前不在区域内、当前在 → `enter` 触发；反之 → `exit` 触发
+- 需要跨帧跟踪状态（per camera_id, binding_id）
 
-#### loitering
+#### loitering（逗留检测）
 
-- Track objects inside the polygon with their entry timestamps
-- When an object has been inside for >= `duration_seconds`, trigger alert
-- Dedup: don't re-alert for same object until it leaves and re-enters
+- 跟踪区域内目标及其进入时间戳
+- 同一目标在区域内连续停留 >= `duration_seconds` 时触发告警
+- 去重：同一目标离开并重新进入前不重复告警
 
-#### count_threshold
+#### count_threshold（数量阈值）
 
-- Count number of objects inside polygon (or full frame if no polygon)
-- Compare against min/max threshold
-- `direction=above` → alert if count > max
-- `direction=below` → alert if count < min
-- `direction=within` → alert if count outside [min, max]
-- Single-frame evaluation, no cross-frame state needed
+- 统计区域内（或全帧，如无 polygon）的目标数量
+- 与 min/max 阈值比较：`above` 超过上限触发，`below` 低于下限触发，`within` 在范围外触发
+- 单帧评估，无需跨帧状态
 
-### 3.3 Cross-Frame State Management
+### 3.3 跨帧状态管理
 
-In-memory `CameraRuleState` singleton:
+内存级 `CameraRuleState` 单例：
 
 ```python
 @dataclass
@@ -136,30 +132,30 @@ class TrackedObject:
     track_id: str
     enter_time: float
     last_seen: float
-    positions: list[tuple[float, float]]  # recent centroids
+    positions: list[tuple[float, float]]  # 最近质心坐标序列
 
 class CameraRuleState:
     _state: dict[tuple[str, int], dict[str, TrackedObject]]  # (camera_id, binding_id) → track_id → state
 
     def cleanup(self, max_age_seconds: float = 60):
-        """Remove tracks not seen for max_age_seconds."""
+        """移除超过 max_age_seconds 未出现的 track。"""
 ```
 
-TTL-based cleanup prevents memory leaks. State is ephemeral (lost on restart), which is acceptable — loitering/intrusion alerts will simply start fresh.
+TTL 定期清理防止内存泄漏。状态是临时的（重启丢失），这对入侵/逗留可接受——重新开始跟踪即可。
 
-## 4. AGGREGATE Node Handler
+## 4. AGGREGATE 节点处理器
 
-Registered handler for `NodeType.AGGREGATE`:
+注册为 `NodeType.AGGREGATE` 的处理程序：
 
-- Accepts all upstream node outputs as `input_data` dict
-- Merges all detection arrays into a flat list `all_detections`
-- Optionally deduplicates by IoU threshold (config `deduplicate: true`)
-- Optionally limits total count (config `max_detections: 500`)
-- Returns `{"all_detections": [...], "by_source": {"node_id": [...], ...}}`
+- 接收所有上游节点的输出作为 `input_data` 字典
+- 将所有检测数组合并为一个扁平列表 `all_detections`
+- 可选按 IoU 阈值去重（`deduplicate: true`）
+- 可选限制总数（`max_detections: 500`）
+- 返回 `{"all_detections": [...], "by_source": {"node_id": [...], ...}}`
 
-## 5. CONDITION Node Handler
+## 5. CONDITION 节点处理器
 
-Registered handler for `NodeType.CONDITION`:
+注册为 `NodeType.CONDITION` 的处理程序：
 
 ```python
 async def condition_handler(context, input_data, node_config):
@@ -168,78 +164,78 @@ async def condition_handler(context, input_data, node_config):
     detections = input_data.get("all_detections", [])
     results = []
     for rule_id in rule_refs:
-        # Load rule from DB/cache
-        # Check if any active binding applies to this camera_id
-        # RuleEngine.evaluate() — if triggered → write Alert → append to results
+        加载规则（DB/缓存）
+        检查是否有绑定适用于此 camera_id
+        RuleEngine.evaluate() — 触发 → 写入 Alert → 追加到 results
     return {"condition_results": results, "triggered": any(r.triggered for r in results)}
 ```
 
-The handler also sets a flag in DAG context that downstream OUTPUT nodes can read for conditional branching.
+同时设置 DAG context 标记，下游 OUTPUT 节点可读取实现条件分支。
 
-## 6. Worker `_save_result()` Enhancement
+## 6. Worker `_save_result()` 增强
 
-Current: only creates Task record without parsing results.
+当前：只创建 Task，不解析检测结果。
 
-Enhanced flow:
+增强后流程：
 
 ```
 _save_result(task_id, camera_id, path_taken, results, context):
-  1. Create/update Task record
-  2. Parse results for detection data (union of all model outputs)
-  3. Query active RuleBindings for this camera_id (cached, TTL 30s)
-  4. For each binding → load Rule → RuleEngine.evaluate()
-  5. Matched rules → create Alert records
-  6. Dedup: skip if same (task_id, rule_id) already exists
+  1. 创建/更新 Task 记录
+  2. 解析 results 提取检测数据（合并所有模型输出）
+  3. 查询该 camera_id 启用的 RuleBinding（缓存，TTL 30s）
+  4. 对每个绑定 → 加载 Rule → RuleEngine.evaluate()
+  5. 匹配 → 创建 Alert 记录
+  6. 去重：同一 (task_id, rule_id) 已存在则跳过
 ```
 
-## 7. API Routes
+## 7. API 路由
 
-### Rule CRUD (`/api/v1/admin/rules`)
+### 规则 CRUD（`/api/v1/admin/rules`）
 
-| Method | Path | Description |
+| 方法 | 路径 | 说明 |
 |---|---|---|
-| GET | `/api/v1/admin/rules` | List rules with filters (type, enabled) |
-| POST | `/api/v1/admin/rules` | Create rule |
-| GET | `/api/v1/admin/rules/{id}` | Get rule detail |
-| PUT | `/api/v1/admin/rules/{id}` | Update rule |
-| DELETE | `/api/v1/admin/rules/{id}` | Delete rule (cascades bindings) |
+| GET | `/api/v1/admin/rules` | 列出规则（按类型、状态过滤） |
+| POST | `/api/v1/admin/rules` | 创建规则 |
+| GET | `/api/v1/admin/rules/{id}` | 规则详情 |
+| PUT | `/api/v1/admin/rules/{id}` | 更新规则 |
+| DELETE | `/api/v1/admin/rules/{id}` | 删除规则（级联绑定） |
 
-### RuleBinding CRUD (`/api/v1/admin/rule-bindings`)
+### 规则绑定 CRUD（`/api/v1/admin/rule-bindings`）
 
-| Method | Path | Description |
+| 方法 | 路径 | 说明 |
 |---|---|---|
-| GET | `/api/v1/admin/rule-bindings` | List bindings with filters (rule_id, camera_id, scene_type) |
-| POST | `/api/v1/admin/rule-bindings` | Create binding |
-| PUT | `/api/v1/admin/rule-bindings/{id}` | Update binding |
-| DELETE | `/api/v1/admin/rule-bindings/{id}` | Delete binding |
+| GET | `/api/v1/admin/rule-bindings` | 列出绑定（按 rule_id, camera_id, scene_type 过滤） |
+| POST | `/api/v1/admin/rule-bindings` | 创建绑定 |
+| PUT | `/api/v1/admin/rule-bindings/{id}` | 更新绑定 |
+| DELETE | `/api/v1/admin/rule-bindings/{id}` | 删除绑定 |
 
-### Batch operations
+### 批量操作
 
-| Method | Path | Description |
+| 方法 | 路径 | 说明 |
 |---|---|---|
-| POST | `/api/v1/admin/rule-bindings/batch` | Batch create/update bindings (accepts JSON array or CSV) |
-| POST | `/api/v1/admin/rule-bindings/import` | Import from CSV file |
+| POST | `/api/v1/admin/rule-bindings/batch` | 批量创建/更新绑定（接收 JSON 数组或 CSV） |
+| POST | `/api/v1/admin/rule-bindings/import` | 从 CSV 文件导入 |
 
-## 8. Testing Strategy
+## 8. 测试策略
 
-| Layer | Focus | Test Count (est.) |
+| 层次 | 重点 | 预估用例数 |
 |---|---|---|
-| Unit: RuleEngine | Each rule type: trigger cases, non-trigger cases, edge cases (empty detections, polygon edge) | ~12 |
-| Unit: AGGREGATE handler | Merging, dedup, max limit | ~4 |
-| Unit: CONDITION handler | Integration with RuleEngine, Alert DB write | ~4 |
-| Unit: CameraRuleState | Tracking, TTL cleanup | ~4 |
-| Unit: Binding resolution | Priority order, partial match | ~4 |
-| API: Rule CRUD | CRUD + validation | ~6 |
-| API: RuleBinding CRUD | CRUD + batch import | ~6 |
-| Integration: Worker fallback | _save_result() with rules | ~3 |
-| **Total** | | **~43** |
+| 单元测试：RuleEngine | 每种规则类型的触发/不触发/边界情况 | ~12 |
+| 单元测试：AGGREGATE handler | 合并、去重、上限限制 | ~4 |
+| 单元测试：CONDITION handler | RuleEngine 集成、Alert DB 写入 | ~4 |
+| 单元测试：CameraRuleState | 跟踪、TTL 清理 | ~4 |
+| 单元测试：绑定解析 | 优先级顺序、部分匹配 | ~4 |
+| API 测试：Rule CRUD | CRUD + 验证 | ~6 |
+| API 测试：RuleBinding CRUD | CRUD + 批量导入 | ~6 |
+| 集成测试：Worker 兜底 | _save_result() 规则评估 | ~3 |
+| **合计** | | **~43** |
 
-## 9. Implementation Order
+## 9. 实现顺序
 
-1. **Data models** — Rule, RuleBinding, Alert migration (add rule_id/binding_id/metadata)
-2. **RuleEngine** — Core evaluation logic (region_intrusion, loitering, count_threshold) + CameraRuleState
-3. **AGGREGATE handler** — Register in DAGExecutor
-4. **CONDITION handler** — Rule-based evaluation + Alert DB write + DAGExecutor registration
-5. **Worker `_save_result()` enhancement** — Fallback rule evaluation + Alert creation
-6. **API routes** — Rule CRUD, RuleBinding CRUD, batch import
-7. **Testing** — All layers
+1. **数据模型** — Rule、RuleBinding 表、Alert 迁移（加 rule_id/binding_id/metadata 字段）
+2. **RuleEngine** — 核心评估逻辑（region_intrusion、loitering、count_threshold）+ CameraRuleState
+3. **AGGREGATE handler** — 注册到 DAGExecutor
+4. **CONDITION handler** — 规则评估 + Alert DB 写入 + 注册到 DAGExecutor
+5. **Worker `_save_result()` 增强** — 兜底规则评估 + Alert 创建
+6. **API 路由** — Rule CRUD、RuleBinding CRUD、批量导入
+7. **测试** — 全层次覆盖
