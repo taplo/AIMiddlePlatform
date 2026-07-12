@@ -52,6 +52,7 @@ from src.monitoring.tracing import add_trace_store_exporter
 from src.api.routes import video_cache as video_cache_route
 from src.api.routes import alerts as alerts_route
 from src.api.routes import api_keys as api_keys_route
+from src.api.routes.admin_rules import rules_router as admin_rules_router, bindings_router as admin_rule_bindings_router
 from src.ingestion.video_cache import init_cache as init_video_cache, get_cache as get_video_cache
 from src.core.security import (
     init_security,
@@ -76,6 +77,8 @@ async def lifespan(app: FastAPI):
     analyze_route.init_db_session_factory(session_factory)
     tasks_route.init_db_session_factory(session_factory)
     alerts_route.init_db_session_factory(session_factory)
+    from src.api.routes.admin_rules import init_db_session_factory as init_rules_db
+    init_rules_db(session_factory)
     condition_handler.init_session_factory(session_factory)
     _init_components()
     init_log_buffer(maxlen=2000)
@@ -225,6 +228,8 @@ app.include_router(admin_logs_router)
 app.include_router(admin_traces_router)
 app.include_router(video_cache_route.router)
 app.include_router(alerts_route.router)
+app.include_router(admin_rules_router)
+app.include_router(admin_rule_bindings_router)
 app.include_router(api_keys_route.router)
 
 
