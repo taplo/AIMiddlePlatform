@@ -1,4 +1,5 @@
 import asyncio
+import inspect
 import logging
 import time
 from collections.abc import Callable
@@ -46,7 +47,10 @@ class DAGExecutor:
 
                 async def run(nid: str, handler: NodeHandler) -> None:
                     input_data = {dep: results[dep] for dep in dag.nodes[nid].depends_on}
-                    result = await asyncio.to_thread(handler, context, input_data, dag.nodes[nid].config)
+                    if inspect.iscoroutinefunction(handler):
+                        result = await handler(context, input_data, dag.nodes[nid].config)
+                    else:
+                        result = await asyncio.to_thread(handler, context, input_data, dag.nodes[nid].config)
                     results[nid] = result
                     completed.add(nid)
 
