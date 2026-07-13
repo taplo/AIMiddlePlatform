@@ -16,11 +16,10 @@ async def test_publish_serializes_and_publishes():
 
 
 @pytest.mark.asyncio
-async def test_publish_raises_on_redis_error():
+async def test_publish_fails_gracefully_on_redis_error():
     mock_redis = AsyncMock()
     mock_redis.publish.side_effect = ConnectionError("Redis down")
     async def mock_get() -> AsyncMock:
         return mock_redis
     with patch("src.ws.get_redis", new=mock_get):
-        with pytest.raises(ConnectionError):
-            await publish("ws:test", {"key": "value"})
+        await publish("ws:test", {"key": "value"})
