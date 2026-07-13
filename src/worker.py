@@ -24,6 +24,8 @@ from src.routing.scene_router import SceneRouter
 from src.agent.tools import ToolRegistry, build_cv_tools
 from src.agent.client import QwenVLClient
 from src.agent.agent import CVAgent
+from src.core.config import settings
+from src.ws import publish as ws_publish
 
 logger = logging.getLogger(__name__)
 
@@ -220,6 +222,16 @@ class Worker:
             )
             session.add(task)
             await session.commit()
+
+        if settings.get("websocket.enabled", True):
+            await ws_publish("ws:analysis_result", {
+                "task_id": task_id,
+                "camera_id": camera_id,
+                "status": "completed",
+                "path_taken": result.get("path", "unknown"),
+                "latency_ms": int(result.get("latency_ms", 0)),
+                "result": result,
+            })
 
         asyncio.create_task(_evaluate_rules_for_task(self.db, task_id, camera_id, result))
 
