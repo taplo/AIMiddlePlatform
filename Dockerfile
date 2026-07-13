@@ -14,14 +14,21 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl ca-certificates && \
     rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt .
-RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install --default-timeout=300 -r requirements.txt
+# Install uv
+RUN pip install --no-cache-dir uv
 
+# Copy dependency files
+COPY pyproject.toml uv.lock* ./
+
+# Sync exact dependencies (no dev deps, no install project to avoid copying src first)
+RUN uv sync --no-dev --no-install-project
+
+# Copy source code
 COPY config/ config/
 COPY src/ src/
 COPY models/ models/
 
+# Copy frontend build
 COPY --from=frontend-builder /app/dist/ frontend/dist/
 
 ENV PYTHONPATH="/app" \
