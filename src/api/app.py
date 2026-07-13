@@ -32,7 +32,7 @@ from src.pipeline.executor import DAGExecutor
 from src.pipeline.dag import DAGDefinition, DAGNode, NodeType
 from src.pipeline.verify_handler import verify_handler
 from src.pipeline.aggregate_handler import aggregate_handler
-from src.pipeline.condition_handler import condition_handler
+from src.pipeline.condition_handler import condition_handler, init_session_factory as init_condition_session
 from src.routing.fast_path import FastPathHandler
 from src.agent.client import QwenVLClient
 from src.agent.tools import ToolRegistry, build_cv_tools
@@ -82,7 +82,7 @@ async def lifespan(app: FastAPI):
     alerts_route.init_db_session_factory(session_factory)
     from src.api.routes.admin_rules import init_db_session_factory as init_rules_db
     init_rules_db(session_factory)
-    condition_handler.init_session_factory(session_factory)
+    init_condition_session(session_factory)
     _init_components()
     init_log_buffer(maxlen=2000)
     from src.core.redis_client import get_redis, close_redis

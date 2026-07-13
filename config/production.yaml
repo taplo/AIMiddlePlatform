@@ -11,7 +11,7 @@ ingestion:
 
 queue:
   type: redis_streams
-  redis_url: ${QUEUE_REDIS_URL:-redis://localhost:6379/0}
+  redis_url: redis://redis:6379/0
   consumer_group: ingestion_workers
   max_backlog: 10000
 
@@ -21,12 +21,12 @@ cache:
   buffer_size_mb: 512
 
 database:
-  url: ${DATABASE_URL:-sqlite+aiosqlite:///data/aimp.db}
+  url: sqlite+aiosqlite:///data/aimp.db
 
 storage:
   enabled: true
-  endpoint: ${S3_ENDPOINT:-minio:9000}
-  access_key: ${S3_ACCESS_KEY:-minioadmin}
-  secret_key: ${S3_SECRET_KEY:-minioadmin}
-  bucket: ${S3_BUCKET:-aimp-results}
+  endpoint: minio:9000
+  access_key: minioadmin
+  secret_key: minioadmin
+  bucket: aimp-results
   secure: false
