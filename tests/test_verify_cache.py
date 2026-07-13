@@ -1,5 +1,4 @@
 import pytest
-import json
 import time
 from unittest.mock import MagicMock, AsyncMock
 import numpy as np

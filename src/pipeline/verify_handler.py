@@ -1,7 +1,6 @@
 import base64
 import logging
 import asyncio
-import time
 
 import cv2
 import numpy as np
