@@ -1,29 +1,27 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: aimp-api
+  name: aimp-worker
   labels:
     app: aimiddleplatform
-    component: api
+    component: worker
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: aimiddleplatform
-      component: api
+      component: worker
   template:
     metadata:
       labels:
         app: aimiddleplatform
-        component: api
+        component: worker
     spec:
       containers:
-        - name: api
+        - name: worker
           image: aimiddleplatform:0.1.0
           imagePullPolicy: IfNotPresent
-          ports:
-            - containerPort: 8000
-              protocol: TCP
+          command: ["python", "-m", "src.worker"]
           envFrom:
             - configMapRef:
                 name: aimp-config
@@ -33,8 +31,6 @@ spec:
                 secretKeyRef:
                   name: aimp-secret
                   key: jwt_secret_key
-            - name: APP_ENV
-              value: "production"
           resources:
             requests:
               cpu: "500m"
@@ -42,15 +38,3 @@ spec:
             limits:
               cpu: "2000m"
               memory: "2Gi"
-          livenessProbe:
-            httpGet:
-              path: /health
-              port: 8000
-            initialDelaySeconds: 10
-            periodSeconds: 15
-          readinessProbe:
-            httpGet:
-              path: /health
-              port: 8000
-            initialDelaySeconds: 5
-            periodSeconds: 10

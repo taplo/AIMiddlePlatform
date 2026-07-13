@@ -7,3 +7,4 @@ metadata:
 data:
   APP_ENV: "production"
   QUEUE_REDIS_URL: "redis://aimp-redis:6379/0"
+  DATABASE_URL: "mysql+aiomysql://aimp:aimp_pass@aimp-mysql:3306/aimp"
