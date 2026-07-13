@@ -13,12 +13,13 @@ def _make_frame(height=200, width=300):
     return base64.b64encode(buf).decode("ascii")
 
 
-def test_verify_no_candidates():
+@pytest.mark.asyncio
+async def test_verify_no_candidates():
     dets = [
         {"bbox": [0, 0, 10, 10], "label": "car", "confidence": 0.95},
         {"bbox": [0, 0, 10, 10], "label": "bus", "confidence": 0.20},
     ]
-    result = verify_handler(
+    result = await verify_handler(
         {"frame": _make_frame()},
         {"detections": dets},
         {"verify_threshold": 0.5, "verify_margin": 0.3},
@@ -27,25 +28,24 @@ def test_verify_no_candidates():
     assert all(d.get("verified") is True for d in result["detections"])
 
 
-def test_verify_candidate_triggers_llm_call():
-    """Verify handler calls the LLM; accepts success or error outcome."""
+@pytest.mark.asyncio
+async def test_verify_candidate_triggers_llm_call():
     import httpx
     from src.agent.client import QwenVLClient
-    from src.pipeline.verify_handler import _get_verify_client
+    import src.pipeline.verify_handler as vh
 
-    # Override the singleton with a mocked client
     mock_transport = httpx.MockTransport(lambda req: httpx.Response(200, json={
         "choices": [{"message": {
             "content": '{"verified": true, "corrected_label": "person", "reason": "clearly visible"}',
             "role": "assistant",
         }}]
     }))
-    _orig = _get_verify_client()
-    import src.pipeline.verify_handler as vh
+    _orig = vh._verify_client
     vh._verify_client = QwenVLClient(http_client=httpx.AsyncClient(transport=mock_transport))
+    vh._verify_cache = None
 
     try:
-        result = verify_handler(
+        result = await verify_handler(
             {"frame": _make_frame()},
             {"detections": [{"bbox": [100, 50, 200, 150], "label": "person", "confidence": 0.65}]},
             {"verify_threshold": 0.5, "verify_margin": 0.3},
@@ -56,11 +56,13 @@ def test_verify_candidate_triggers_llm_call():
         assert d["verification_reason"] != ""
     finally:
         vh._verify_client = _orig
+        vh._verify_cache = None
 
 
-def test_verify_empty_frame():
+@pytest.mark.asyncio
+async def test_verify_empty_frame():
     dets = [{"bbox": [100, 50, 200, 150], "label": "person", "confidence": 0.65}]
-    result = verify_handler(
+    result = await verify_handler(
         {"frame": ""},
         {"detections": dets},
         {},
@@ -69,8 +71,9 @@ def test_verify_empty_frame():
     assert len(result["detections"]) == 1
 
 
-def test_verify_no_detections():
-    result = verify_handler(
+@pytest.mark.asyncio
+async def test_verify_no_detections():
+    result = await verify_handler(
         {"frame": _make_frame()},
         {"detections": []},
         {},
@@ -79,8 +82,8 @@ def test_verify_no_detections():
     assert result["detections"] == []
 
 
-def test_verify_edge_threshold():
-    """边界值：exactly at threshold, exactly at threshold+margin"""
+@pytest.mark.asyncio
+async def test_verify_edge_threshold():
     import httpx
     from src.agent.client import QwenVLClient
     import src.pipeline.verify_handler as vh
@@ -93,6 +96,7 @@ def test_verify_edge_threshold():
     }))
     _orig = vh._verify_client
     vh._verify_client = QwenVLClient(http_client=httpx.AsyncClient(transport=mock_transport))
+    vh._verify_cache = None
 
     try:
         dets = [
@@ -100,7 +104,7 @@ def test_verify_edge_threshold():
             {"bbox": [100, 50, 200, 150], "label": "car", "confidence": 0.8},
             {"bbox": [100, 50, 200, 150], "label": "bus", "confidence": 0.79},
         ]
-        result = verify_handler(
+        result = await verify_handler(
             {"frame": _make_frame()},
             {"detections": dets},
             {"verify_threshold": 0.5, "verify_margin": 0.3},
@@ -108,3 +112,4 @@ def test_verify_edge_threshold():
         assert result["verification_count"] == 2
     finally:
         vh._verify_client = _orig
+        vh._verify_cache = None

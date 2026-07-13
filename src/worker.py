@@ -20,6 +20,8 @@ from src.ingestion.video_cache import get_cache as get_video_cache
 from src.pipeline.executor import DAGExecutor
 from src.pipeline.dag import DAGDefinition, DAGNode, NodeType
 from src.pipeline.verify_handler import verify_handler
+from src.pipeline.aggregate_handler import aggregate_handler
+from src.pipeline.condition_handler import condition_handler
 from src.routing.scene_router import SceneRouter
 from src.agent.tools import ToolRegistry, build_cv_tools
 from src.agent.client import QwenVLClient
@@ -135,6 +137,8 @@ def _init_fast_path() -> tuple[SceneRouter, PipelineRegistry, DAGExecutor, FastP
     executor = DAGExecutor()
     executor.register_handler(NodeType.MODEL_INFERENCE, _inference_handler)
     executor.register_handler(NodeType.VERIFY, verify_handler)
+    executor.register_handler(NodeType.AGGREGATE, aggregate_handler)
+    executor.register_handler(NodeType.CONDITION, condition_handler)
     _register_default_pipelines(registry)
     handler = FastPathHandler(router, registry, executor)
     return router, registry, executor, handler

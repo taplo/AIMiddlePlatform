@@ -1,5 +1,4 @@
 import base64
-import json
 import logging
 import asyncio
 import time
@@ -22,22 +21,6 @@ def _get_verify_client():
     return _verify_client
 
 
-_verify_ttl = 60
-
-
-def _get_verify_cache():
-    global _verify_cache, _verify_ttl
-    if _verify_cache is None:
-        from src.core.config import settings
-        if not settings.get("result_cache.enabled", True):
-            return None
-        _verify_ttl = settings.get("result_cache.ttl_seconds", 60)
-        import redis as sync_redis
-        redis_url = settings.get("queue.redis_url", "redis://localhost:6379/0")
-        _verify_cache = sync_redis.from_url(redis_url)
-    return _verify_cache
-
-
 def _get_verify_hasher():
     global _verify_hasher
     if _verify_hasher is None:
@@ -46,7 +29,63 @@ def _get_verify_hasher():
     return _verify_hasher
 
 
-def verify_handler(context: dict, input_data: dict, node_config: dict) -> dict:
+async def _get_result_cache():
+    global _verify_cache
+    if _verify_cache is None:
+        from src.core.config import settings
+        if not settings.get("result_cache.enabled", True):
+            return None
+        from src.cache.result_cache import ResultCache
+        from src.core.redis_client import get_redis
+        redis = await get_redis()
+        if redis is None:
+            return None
+        _verify_cache = ResultCache(redis)
+    return _verify_cache
+
+
+def _decode_frame(frame_b64: str):
+    try:
+        raw = base64.b64decode(frame_b64)
+        arr = np.frombuffer(raw, dtype=np.uint8)
+        return cv2.imdecode(arr, cv2.IMREAD_COLOR), raw
+    except Exception:
+        return None, None
+
+
+async def _verify_one_detection(client, cache, frame, det, frame_hash, cache_key, camera_id):
+    x1, y1, x2, y2 = det.get("bbox", [0, 0, 0, 0])
+    x1, y1 = max(0, x1), max(0, y1)
+    x2 = min(frame.shape[1], x2)
+    y2 = min(frame.shape[0], y2)
+    crop = frame[y1:y2, x1:x2]
+    if crop.size == 0:
+        det["verified"] = False
+        det["verification_error"] = "empty_crop"
+        return
+
+    _, buf = cv2.imencode(".jpg", crop, [cv2.IMWRITE_JPEG_QUALITY, 85])
+    crop_bytes = buf.tobytes()
+    try:
+        result = await client.verify(crop_bytes, det.get("label", ""), det.get("confidence", 0))
+        det["verified"] = result.get("verified", False)
+        if result.get("corrected_label"):
+            det["corrected_label"] = result["corrected_label"]
+        det["verification_reason"] = result.get("reason", "")
+    except Exception as e:
+        logger.warning("VERIFY call failed: %s", e)
+        det["verified"] = False
+        det["verification_error"] = str(e)
+        return
+
+    if cache:
+        try:
+            await cache.set(camera_id, frame_hash, {"verified": det["verified"], "reason": det.get("verification_reason", "")}, cache_key)
+        except Exception:
+            logger.debug("Cache store failed", exc_info=True)
+
+
+async def verify_handler(context: dict, input_data: dict, node_config: dict) -> dict:
     threshold = node_config.get("verify_threshold", 0.5)
     margin = node_config.get("verify_margin", 0.3)
     upper = threshold + margin
@@ -56,90 +95,43 @@ def verify_handler(context: dict, input_data: dict, node_config: dict) -> dict:
     if not frame_b64 or not detections:
         return {"detections": detections, "verification_count": 0}
 
-    try:
-        raw = base64.b64decode(frame_b64)
-        arr = np.frombuffer(raw, dtype=np.uint8)
-        frame = cv2.imdecode(arr, cv2.IMREAD_COLOR)
-        if frame is None:
-            return {"detections": detections, "verification_count": 0, "error": "decode_failed"}
-    except Exception:
+    frame, raw = _decode_frame(frame_b64)
+    if frame is None:
         return {"detections": detections, "verification_count": 0, "error": "decode_failed"}
 
     client = _get_verify_client()
+    cache = await _get_result_cache()
+    hasher = _get_verify_hasher()
+    frame_hash = hasher.compute(raw)
+    camera_id = context.get("camera_id", "")
+
+    tasks = []
     verified_detections = []
     v_count = 0
 
     for det in detections:
         conf = det.get("confidence", 0)
         if threshold <= conf < upper:
-            x1, y1, x2, y2 = det.get("bbox", [0, 0, 0, 0])
-            x1, y1 = max(0, x1), max(0, y1)
-            x2 = min(frame.shape[1], x2)
-            y2 = min(frame.shape[0], y2)
-            crop = frame[y1:y2, x1:x2]
-            if crop.size == 0:
-                det["verified"] = False
-                det["verification_error"] = "empty_crop"
-                verified_detections.append(det)
-                continue
-            _, buf = cv2.imencode(".jpg", crop, [cv2.IMWRITE_JPEG_QUALITY, 85])
-            crop_bytes = buf.tobytes()
-            context_str = f"verify:{det.get('label', '')}"
-            cache_hit = False
-            try:
-                cache = _get_verify_cache()
-                hasher = _get_verify_hasher()
-                frame_hash = hasher.compute(raw)
-                exact_key = f"cache:result:{context.get('camera_id', '')}:{frame_hash}"
-                cached = cache.get(exact_key)
-                if cached:
-                    cached_data = json.loads(cached)
-                    entry_ctx = cached_data.get("context_hash", "")
-                    if entry_ctx == context_str:
-                        result = cached_data["result"]
-                        det["verified"] = result.get("verified", False)
-                        if result.get("corrected_label"):
-                            det["corrected_label"] = result["corrected_label"]
-                        det["verification_reason"] = result.get("reason", "")
-                        det["verification_cache_hit"] = True
-                        cache_hit = True
-            except Exception:
-                logger.debug("Cache lookup failed, falling through to LLM", exc_info=True)
-
-            if cache_hit:
-                verified_detections.append(det)
-                v_count += 1
-                continue
-
-            try:
-                result = asyncio.run(client.verify(crop_bytes, det.get("label", ""), conf))
-                det["verified"] = result.get("verified", False)
-                if result.get("corrected_label"):
-                    det["corrected_label"] = result["corrected_label"]
-                det["verification_reason"] = result.get("reason", "")
-
+            cache_key = f"verify:{det.get('label', '')}"
+            cached = None
+            if cache:
                 try:
-                    if cache:
-                        cache_entry = json.dumps({
-                            "result": result,
-                            "created_at": time.time(),
-                            "context_hash": context_str,
-                        })
-                        cache.set(exact_key, cache_entry, ex=_verify_ttl)
-                        camera_set_key = f"cache:camera:{context.get('camera_id', '')}:hashes"
-                        cache.zadd(camera_set_key, {f"{frame_hash}:{context_str}": time.time()})
-                        cache.expire(camera_set_key, _verify_ttl)
-                        cache.incr("cache:stats:misses")
+                    cached = await cache.get(camera_id, frame_hash, cache_key)
                 except Exception:
-                    logger.debug("Cache store failed", exc_info=True)
-            except Exception as e:
-                logger.warning("VERIFY call failed: %s", e)
-                det["verified"] = False
-                det["verification_error"] = str(e)
+                    pass
+            if cached:
+                det["verified"] = cached.result.get("verified", False)
+                det["verification_reason"] = cached.result.get("reason", "")
+                det["verification_cache_hit"] = True
+            else:
+                tasks.append(_verify_one_detection(client, cache, frame, det, frame_hash, cache_key, camera_id))
             v_count += 1
         else:
             det["verified"] = True
         verified_detections.append(det)
+
+    if tasks:
+        await asyncio.gather(*tasks)
 
     return {
         "detections": verified_detections,
