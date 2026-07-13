@@ -25,20 +25,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN HTTP_PROXY=${HTTP_PROXY_ARG} HTTPS_PROXY=${HTTPS_PROXY_ARG} NO_PROXY=${NO_PROXY} \
     pip install --no-cache-dir uv
 
-# Copy dependency files
+# Copy dependency files + source code
 COPY pyproject.toml uv.lock* ./
-
-# Sync exact dependencies (use proxy if provided)
-RUN HTTP_PROXY=${HTTP_PROXY_ARG} HTTPS_PROXY=${HTTPS_PROXY_ARG} NO_PROXY=${NO_PROXY} \
-    uv sync --no-dev --no-install-project
-
-# Copy source code
 COPY config/ config/
 COPY src/ src/
 COPY models/ models/
 
-# Install the project itself (use proxy if provided)
-RUN HTTP_PROXY=${HTTP_PROXY_ARG} HTTPS_PROXY=${HTTPS_PROXY_ARG} NO_PROXY=${NO_PROXY} \
+# Sync all dependencies (caches wheels across builds for slow networks)
+RUN --mount=type=cache,target=/root/.cache/uv \
+    HTTP_PROXY=${HTTP_PROXY_ARG} HTTPS_PROXY=${HTTPS_PROXY_ARG} NO_PROXY=${NO_PROXY} \
     uv sync --no-dev
 
 # Copy frontend build
