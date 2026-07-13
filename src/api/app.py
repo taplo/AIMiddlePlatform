@@ -52,6 +52,7 @@ from src.monitoring.tracing import add_trace_store_exporter
 from src.api.routes import video_cache as video_cache_route
 from src.api.routes import alerts as alerts_route
 from src.api.routes import api_keys as api_keys_route
+from src.api.routes import ws as ws_route
 from src.api.routes.admin_rules import rules_router as admin_rules_router, bindings_router as admin_rule_bindings_router
 from src.ingestion.video_cache import init_cache as init_video_cache, get_cache as get_video_cache
 from src.core.security import (
@@ -88,7 +89,20 @@ async def lifespan(app: FastAPI):
         logger.info("Redis connection established")
     except Exception as e:
         logger.warning("Redis unavailable: %s", e)
+    try:
+        from src.ws.manager import ConnectionManager
+        redis_url = settings.get("queue.redis_url", "redis://localhost:6379/0")
+        ws_mgr = ConnectionManager(redis_url)
+        ws_route.ws_manager = ws_mgr
+        await ws_mgr.start()
+        logger.info("WebSocket manager started")
+    except Exception as e:
+        logger.warning("WebSocket manager unavailable: %s", e)
+        ws_route.ws_manager = None
     yield
+    if ws_route.ws_manager is not None:
+        await ws_route.ws_manager.stop()
+        logger.info("WebSocket manager stopped")
     await close_redis()
 
 
@@ -238,6 +252,7 @@ app.include_router(alerts_route.router)
 app.include_router(admin_rules_router)
 app.include_router(admin_rule_bindings_router)
 app.include_router(api_keys_route.router)
+app.include_router(ws_route.router)
 
 
 @app.middleware("http")
