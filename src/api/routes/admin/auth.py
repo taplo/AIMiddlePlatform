@@ -12,8 +12,8 @@ ALGORITHM = "HS256"
 ACCESS_EXPIRE = timedelta(hours=24)
 REFRESH_EXPIRE = timedelta(days=7)
 
-_ADMIN_USER = "admin"
-_ADMIN_PASS = "admin123"
+_ADMIN_USER = os.getenv("ADMIN_USERNAME", "admin")
+_ADMIN_PASS = os.getenv("ADMIN_PASSWORD", "admin123")
 
 
 class LoginRequest(BaseModel):
