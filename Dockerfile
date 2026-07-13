@@ -11,15 +11,9 @@ FROM python:3.12-slim
 
 ARG http_proxy
 ARG https_proxy
-ARG HTTP_PROXY
-ARG HTTPS_PROXY
+ARG HTTP_PROXY_ARG=$http_proxy
+ARG HTTPS_PROXY_ARG=$https_proxy
 ARG NO_PROXY
-
-ENV http_proxy=${http_proxy} \
-    https_proxy=${https_proxy} \
-    HTTP_PROXY=${HTTP_PROXY} \
-    HTTPS_PROXY=${HTTPS_PROXY} \
-    NO_PROXY=${NO_PROXY}
 
 WORKDIR /app
 
@@ -27,29 +21,25 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl ca-certificates && \
     rm -rf /var/lib/apt/lists/*
 
-# Install uv
-RUN pip install --no-cache-dir uv
-
-# Unset proxy at runtime so app doesn't use proxy for internal calls
-ENV http_proxy= \
-    https_proxy= \
-    HTTP_PROXY= \
-    HTTPS_PROXY= \
-    NO_PROXY=
+# Install uv (use proxy if provided)
+RUN HTTP_PROXY=${HTTP_PROXY_ARG} HTTPS_PROXY=${HTTPS_PROXY_ARG} NO_PROXY=${NO_PROXY} \
+    pip install --no-cache-dir uv
 
 # Copy dependency files
 COPY pyproject.toml uv.lock* ./
 
-# Sync exact dependencies (no dev deps)
-RUN uv sync --no-dev --no-install-project
+# Sync exact dependencies (use proxy if provided)
+RUN HTTP_PROXY=${HTTP_PROXY_ARG} HTTPS_PROXY=${HTTPS_PROXY_ARG} NO_PROXY=${NO_PROXY} \
+    uv sync --no-dev --no-install-project
 
 # Copy source code
 COPY config/ config/
 COPY src/ src/
 COPY models/ models/
 
-# Install the project itself
-RUN uv sync --no-dev
+# Install the project itself (use proxy if provided)
+RUN HTTP_PROXY=${HTTP_PROXY_ARG} HTTPS_PROXY=${HTTPS_PROXY_ARG} NO_PROXY=${NO_PROXY} \
+    uv sync --no-dev
 
 # Copy frontend build
 COPY --from=frontend-builder /app/dist/ frontend/dist/
