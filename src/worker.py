@@ -68,6 +68,8 @@ async def _evaluate_rules_for_task(
             stmt = select(RuleBinding).where(RuleBinding.enabled == True)
             bindings = (await session.execute(stmt)).scalars().all()
 
+            created_alerts: list[tuple[Alert, Any]] = []
+
             for binding in bindings:
                 if binding.camera_id and binding.camera_id != camera_id:
                     continue
@@ -98,8 +100,22 @@ async def _evaluate_rules_for_task(
                         metadata_=json.dumps(result_eval.details),
                     )
                     session.add(alert)
+                    created_alerts.append((alert, rule))
 
             await session.commit()
+
+            if settings.get("websocket.enabled", True):
+                for alert_obj, rule_obj in created_alerts:
+                    try:
+                        await ws_publish("ws:alert", {
+                            "alert_id": alert_obj.id,
+                            "rule_name": rule_obj.name,
+                            "camera_id": camera_id,
+                            "severity": getattr(rule_obj, "severity", "medium"),
+                            "message": f"{rule_obj.name}: triggered on camera {camera_id}",
+                        })
+                    except Exception:
+                        logger.warning("Failed to publish alert %d", alert_obj.id)
     except Exception:
         logger.exception("rule evaluation: failed for task %s camera %s", task_id, camera_id)
 
