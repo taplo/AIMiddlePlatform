@@ -37,3 +37,11 @@ websocket:
   enabled: true
   ping_interval: 30
   max_connections: 10000
+
+storage:
+  enabled: false
+  endpoint: ""
+  access_key: ""
+  secret_key: ""
+  bucket: aimp-results
+  secure: false
