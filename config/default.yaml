@@ -32,3 +32,8 @@ llm:
   model_name: Qwen/Qwen2.5-VL-7B-Instruct
   timeout: 30
   max_retries: 2
+
+websocket:
+  enabled: true
+  ping_interval: 30
+  max_connections: 10000
