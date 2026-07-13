@@ -240,12 +240,22 @@ class Worker:
             await session.commit()
 
         if settings.get("websocket.enabled", True):
+            detections = []
+            if isinstance(result, dict):
+                all_dets = result.get("all_detections", [])
+                if all_dets and isinstance(all_dets, list):
+                    detections = all_dets
+                else:
+                    for v in result.values():
+                        if isinstance(v, dict) and "detections" in v:
+                            detections.extend(v["detections"])
             await ws_publish("ws:analysis_result", {
                 "task_id": task_id,
                 "camera_id": camera_id,
                 "status": "completed",
                 "path_taken": result.get("path", "unknown"),
                 "latency_ms": int(result.get("latency_ms", 0)),
+                "detections": detections,
                 "result": result,
             })
 
