@@ -334,18 +334,7 @@ def register_dag_handlers(executor: DAGExecutor):
 | `/v1/analyze/stream` | `/api/v1/analyze/stream` | `routes/ingest.py` |
 | `/ws` | `/api/v1/ws` | `routes/ws.py` |
 
-**6b — 凭据强化**
-
-首次启动时若未设置 `ADMIN_PASSWORD` 环境变量，自动生成随机密码并输出到日志：
-
-```python
-_ADMIN_USER = os.getenv("ADMIN_USERNAME", "admin")
-_ADMIN_PASS = os.getenv("ADMIN_PASSWORD", "")
-if not _ADMIN_PASS:
-    import secrets
-    _ADMIN_PASS = secrets.token_urlsafe(24)
-    logger.warning("未设置 ADMIN_PASSWORD，已自动生成: %s", _ADMIN_PASS)
-```
+**6b — 凭据强化**（已推迟，当前迭代不实施）
 
 **6c — Redis 后端速率限制**
 
