@@ -8,4 +8,4 @@ def get_db_url_from_config() -> str:
 
 
 def is_mysql(url: str) -> bool:
-    return url.startswith("mysql") or url.startswith("mysql+aiomysql")
+    return url.startswith("mysql+aiomysql") or url.startswith("mysql://")

@@ -20,7 +20,7 @@ RUN pip install --no-cache-dir uv
 # Copy dependency files
 COPY pyproject.toml uv.lock* ./
 
-# Sync exact dependencies (no dev deps, no install project to avoid copying src first)
+# Sync exact dependencies (no dev deps)
 RUN uv sync --no-dev --no-install-project
 
 # Copy source code
@@ -28,10 +28,15 @@ COPY config/ config/
 COPY src/ src/
 COPY models/ models/
 
+# Install the project itself
+RUN uv sync --no-dev
+
 # Copy frontend build
 COPY --from=frontend-builder /app/dist/ frontend/dist/
 
-ENV PYTHONPATH="/app" \
+ENV VIRTUAL_ENV=/app/.venv \
+    PATH="/app/.venv/bin:$PATH" \
+    PYTHONPATH="/app" \
     APP_ENV="production"
 
 EXPOSE 8000

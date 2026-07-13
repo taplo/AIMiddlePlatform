@@ -10,15 +10,13 @@ services:
     environment:
       - APP_ENV=production
       - QUEUE_REDIS_URL=redis://redis:6379/0
-      - DATABASE_URL=mysql+aiomysql://aimp:aimp_pass@mysql:3306/aimp
+      - DATABASE_URL=${DATABASE_URL:-sqlite+aiosqlite:///data/aimp.db}
       - JWT_SECRET_KEY=${JWT_SECRET_KEY:-change-me-in-production}
     volumes:
       - ./data:/app/data
     depends_on:
       redis:
         condition: service_started
-      mysql:
-        condition: service_healthy
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python3", "-c", "import urllib.request; r=urllib.request.urlopen('http://localhost:8000/health'); assert r.status==200"]
@@ -36,7 +34,8 @@ services:
     environment:
       - APP_ENV=production
       - QUEUE_REDIS_URL=redis://redis:6379/0
-      - DATABASE_URL=mysql+aiomysql://aimp:aimp_pass@mysql:3306/aimp
+      - DATABASE_URL=${DATABASE_URL:-sqlite+aiosqlite:///data/aimp.db}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-change-me-in-production}
     volumes:
       - ./data:/app/data
     restart: unless-stopped
