@@ -8,6 +8,19 @@ RUN npm run build
 
 # ---- Python runtime ----
 FROM python:3.12-slim
+
+ARG http_proxy
+ARG https_proxy
+ARG HTTP_PROXY
+ARG HTTPS_PROXY
+ARG NO_PROXY
+
+ENV http_proxy=${http_proxy} \
+    https_proxy=${https_proxy} \
+    HTTP_PROXY=${HTTP_PROXY} \
+    HTTPS_PROXY=${HTTPS_PROXY} \
+    NO_PROXY=${NO_PROXY}
+
 WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -16,6 +29,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Install uv
 RUN pip install --no-cache-dir uv
+
+# Unset proxy at runtime so app doesn't use proxy for internal calls
+ENV http_proxy= \
+    https_proxy= \
+    HTTP_PROXY= \
+    HTTPS_PROXY= \
+    NO_PROXY=
 
 # Copy dependency files
 COPY pyproject.toml uv.lock* ./
