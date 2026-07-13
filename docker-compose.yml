@@ -10,12 +10,15 @@ services:
     environment:
       - APP_ENV=production
       - QUEUE_REDIS_URL=redis://redis:6379/0
-      - DATABASE_URL=sqlite+aiosqlite:///data/aimp.db
+      - DATABASE_URL=mysql+aiomysql://aimp:aimp_pass@mysql:3306/aimp
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-change-me-in-production}
     volumes:
       - ./data:/app/data
     depends_on:
       redis:
         condition: service_started
+      mysql:
+        condition: service_healthy
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python3", "-c", "import urllib.request; r=urllib.request.urlopen('http://localhost:8000/health'); assert r.status==200"]
@@ -33,7 +36,7 @@ services:
     environment:
       - APP_ENV=production
       - QUEUE_REDIS_URL=redis://redis:6379/0
-      - DATABASE_URL=sqlite+aiosqlite:///data/aimp.db
+      - DATABASE_URL=mysql+aiomysql://aimp:aimp_pass@mysql:3306/aimp
     volumes:
       - ./data:/app/data
     restart: unless-stopped
@@ -64,5 +67,25 @@ services:
       - aimp-api
     restart: unless-stopped
 
+  mysql:
+    image: mysql:8.0
+    container_name: aimp-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-aimp_root}
+      MYSQL_DATABASE: aimp
+      MYSQL_USER: aimp
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-aimp_pass}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
 volumes:
   redis_data:
+  mysql_data:

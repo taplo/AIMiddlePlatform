@@ -1,3 +1,4 @@
+import os
 import sys
 from pathlib import Path
 from logging.config import fileConfig
@@ -13,6 +14,11 @@ config = context.config
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
+
+DATABASE_URL = os.getenv("DATABASE_URL")
+if DATABASE_URL:
+    sync_url = DATABASE_URL.replace("+aiosqlite", "").replace("+aiomysql", "")
+    config.set_main_option("sqlalchemy.url", sync_url)
 
 from src.core.database import Base
 target_metadata = Base.metadata

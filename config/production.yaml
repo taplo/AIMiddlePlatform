@@ -19,3 +19,6 @@ cache:
   enabled: true
   max_duration: 5
   buffer_size_mb: 512
+
+database:
+  url: ${DATABASE_URL:-sqlite+aiosqlite:///data/aimp.db}

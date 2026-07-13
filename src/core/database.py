@@ -2,6 +2,7 @@ from datetime import datetime
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy import String, Integer, Float, Text, DateTime, Boolean, ForeignKey, func
+from src.core.db_url import get_db_url_from_config, is_mysql
 
 
 class Base(DeclarativeBase):
@@ -69,8 +70,12 @@ _engine = None
 _session_factory = None
 
 
-async def init_db(url: str = "sqlite+aiosqlite:///data/aimp.db"):
+async def init_db(url: str | None = None):
     global _engine, _session_factory
+    if url is None:
+        url = get_db_url_from_config()
+    if is_mysql(url) and not url.startswith("mysql+aiomysql"):
+        url = url.replace("mysql://", "mysql+aiomysql://", 1)
     _engine = create_async_engine(url, echo=False)
     async with _engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)

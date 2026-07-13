@@ -1,3 +1,4 @@
+import os
 import logging
 from contextlib import asynccontextmanager
 
@@ -73,7 +74,8 @@ _inference_orchestrator: InferenceOrchestrator | None = None
 async def lifespan(app: FastAPI):
     from src.core.database import init_db
     from sqlalchemy.ext.asyncio import async_sessionmaker
-    db_engine = await init_db("sqlite+aiosqlite:///data/aimp.db")
+    db_url = os.getenv("DATABASE_URL") or settings.get("database.url") or "sqlite+aiosqlite:///data/aimp.db"
+    db_engine = await init_db(db_url)
     session_factory = async_sessionmaker(db_engine, expire_on_commit=False)
     analyze_route.init_db_session_factory(session_factory)
     tasks_route.init_db_session_factory(session_factory)
