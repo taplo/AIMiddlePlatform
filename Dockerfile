@@ -47,6 +47,6 @@ ENV VIRTUAL_ENV=/app/.venv \
 EXPOSE 8000
 
 HEALTHCHECK --interval=15s --timeout=5s --retries=3 \
-    CMD python3 -c "import urllib.request; r=urllib.request.urlopen('http://localhost:8000/health'); assert r.status==200"
+    CMD python3 -c "import urllib.request; r=urllib.request.urlopen('http://localhost:8000/api/v1/health'); assert r.status==200"
 
 CMD ["uvicorn", "src.api.app:app", "--host", "0.0.0.0", "--port", "8000"]
