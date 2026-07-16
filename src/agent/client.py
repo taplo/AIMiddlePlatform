@@ -69,6 +69,7 @@ class QwenVLClient(LLMClient):
         self.timeout = timeout
         self.max_retries = max_retries
         self._http = http_client or httpx.AsyncClient(timeout=httpx.Timeout(timeout))
+        self._owned_http = http_client is None
 
     async def chat(
         self,
@@ -160,6 +161,9 @@ class QwenVLClient(LLMClient):
             }
 
         raise LLMAPIError("Max retries exceeded")
+
+    async def aclose(self) -> None:
+        await self._http.aclose()
 
 
 class DeepSeekVLClient(QwenVLClient):

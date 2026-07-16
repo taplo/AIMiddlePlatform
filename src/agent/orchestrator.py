@@ -25,10 +25,6 @@ class AgentOrchestrator:
         frame_context: dict[str, Any],
         image_data: bytes | None = None,
     ) -> dict[str, Any]:
-        result = await self.fast_path.process(frame_context)
-        if result is not None:
-            return result
-
         if image_data:
             return await self.agent.analyze_with_image(frame_context, image_data)
         return await self.agent.analyze(frame_context)

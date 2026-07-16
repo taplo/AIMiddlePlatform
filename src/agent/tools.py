@@ -41,6 +41,20 @@ class ToolRegistry:
 
         model_id = tool.get("model_id")
         if model_id:
+            import base64
+
+            import cv2
+            import numpy as np
+
+            image_b64 = arguments.get("image", "")
+            if image_b64:
+                try:
+                    raw = base64.b64decode(image_b64)
+                    arr = np.frombuffer(raw, dtype=np.uint8)
+                    arguments["image"] = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+                except Exception as e:
+                    logger.warning("Failed to decode image in tool %s: %s", name, e)
+
             result = await self.orchestrator.infer(model_id, arguments)
             return result["output"]
 
