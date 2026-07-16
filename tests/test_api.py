@@ -23,7 +23,7 @@ def _headers() -> dict:
 async def test_health() -> None:
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        resp = await client.get("/health")
+        resp = await client.get("/api/v1/health")
     assert resp.status_code == 200
     data = resp.json()
     assert data["status"] == "ok"
@@ -32,7 +32,7 @@ async def test_health() -> None:
 def test_register_stream() -> None:
     client = TestClient(app)
     resp = client.post(
-        "/v1/analyze/stream",
+        "/api/v1/analyze/stream",
         json={"stream_url": "rtsp://test/stream", "protocol": "rtsp"},
         headers=_headers(),
     )

@@ -3,6 +3,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from src.api.app import app
+from src.api import deps as api_deps
 from src.api.routes import tasks as tasks_route
 from src.api.routes import alerts as alerts_route
 from src.core.database import Task, Alert, init_db
@@ -28,10 +29,8 @@ def _headers() -> dict:
 async def _setup_db():
     engine = await init_db("sqlite+aiosqlite://")
     factory = async_sessionmaker(engine, expire_on_commit=False)
-    prev_tasks_factory = tasks_route._db_session_factory
-    prev_alerts_factory = alerts_route._db_session_factory
-    tasks_route.init_db_session_factory(factory)
-    alerts_route.init_db_session_factory(factory)
+    prev = api_deps._session_factory
+    api_deps.init_session_factory(factory)
     async with factory() as session:
         session.add_all([
             Task(id="t1", camera_id="cam-1", status="completed", path_taken="fast", latency_ms=50),
@@ -46,12 +45,11 @@ async def _setup_db():
         ])
         await session.commit()
     yield
-    tasks_route.init_db_session_factory(prev_tasks_factory)
-    alerts_route.init_db_session_factory(prev_alerts_factory)
+    api_deps.init_session_factory(prev)
 
 
 def test_list_tasks_all() -> None:
-    resp = client.get("/v1/tasks", headers=_headers())
+    resp = client.get("/api/v1/tasks", headers=_headers())
     assert resp.status_code == 200
     data = resp.json()
     assert data["total"] == 4
@@ -61,7 +59,7 @@ def test_list_tasks_all() -> None:
 
 
 def test_list_tasks_filter_status() -> None:
-    resp = client.get("/v1/tasks?status=completed", headers=_headers())
+    resp = client.get("/api/v1/tasks?status=completed", headers=_headers())
     assert resp.status_code == 200
     data = resp.json()
     assert data["total"] == 2
@@ -69,7 +67,7 @@ def test_list_tasks_filter_status() -> None:
 
 
 def test_list_tasks_filter_camera() -> None:
-    resp = client.get("/v1/tasks?camera_id=cam-2", headers=_headers())
+    resp = client.get("/api/v1/tasks?camera_id=cam-2", headers=_headers())
     assert resp.status_code == 200
     data = resp.json()
     assert data["total"] == 2
@@ -77,7 +75,7 @@ def test_list_tasks_filter_camera() -> None:
 
 
 def test_list_tasks_pagination() -> None:
-    resp = client.get("/v1/tasks?page=1&page_size=2", headers=_headers())
+    resp = client.get("/api/v1/tasks?page=1&page_size=2", headers=_headers())
     assert resp.status_code == 200
     data = resp.json()
     assert data["total"] == 4
@@ -85,7 +83,7 @@ def test_list_tasks_pagination() -> None:
 
 
 def test_get_task_result() -> None:
-    resp = client.get("/v1/tasks/t1/results", headers=_headers())
+    resp = client.get("/api/v1/tasks/t1/results", headers=_headers())
     assert resp.status_code == 200
     data = resp.json()
     assert data["task_id"] == "t1"
@@ -94,7 +92,7 @@ def test_get_task_result() -> None:
 
 
 def test_get_task_result_rejected() -> None:
-    resp = client.get("/v1/tasks/t3/results", headers=_headers())
+    resp = client.get("/api/v1/tasks/t3/results", headers=_headers())
     assert resp.status_code == 200
     data = resp.json()
     assert data["rejection_reason"] == "quality_blurry"
@@ -102,12 +100,12 @@ def test_get_task_result_rejected() -> None:
 
 
 def test_get_task_result_not_found() -> None:
-    resp = client.get("/v1/tasks/nonexistent/results", headers=_headers())
+    resp = client.get("/api/v1/tasks/nonexistent/results", headers=_headers())
     assert resp.status_code == 404
 
 
 def test_list_alerts_all() -> None:
-    resp = client.get("/v1/alerts", headers=_headers())
+    resp = client.get("/api/v1/alerts", headers=_headers())
     assert resp.status_code == 200
     data = resp.json()
     assert data["total"] == 3
@@ -115,28 +113,28 @@ def test_list_alerts_all() -> None:
 
 
 def test_list_alerts_filter_status() -> None:
-    resp = client.get("/v1/alerts?status=pending", headers=_headers())
+    resp = client.get("/api/v1/alerts?status=pending", headers=_headers())
     assert resp.status_code == 200
     data = resp.json()
     assert data["total"] == 1
 
 
 def test_list_alerts_filter_type() -> None:
-    resp = client.get("/v1/alerts?alert_type=person_detected", headers=_headers())
+    resp = client.get("/api/v1/alerts?alert_type=person_detected", headers=_headers())
     assert resp.status_code == 200
     data = resp.json()
     assert data["total"] == 1
 
 
 def test_list_alerts_filter_task_id() -> None:
-    resp = client.get("/v1/alerts?task_id=t3", headers=_headers())
+    resp = client.get("/api/v1/alerts?task_id=t3", headers=_headers())
     assert resp.status_code == 200
     data = resp.json()
     assert data["total"] == 1
 
 
 def test_get_alert_by_id() -> None:
-    resp = client.get("/v1/alerts/1", headers=_headers())
+    resp = client.get("/api/v1/alerts/1", headers=_headers())
     assert resp.status_code == 200
     data = resp.json()
     assert data["id"] == 1
@@ -144,5 +142,5 @@ def test_get_alert_by_id() -> None:
 
 
 def test_get_alert_not_found() -> None:
-    resp = client.get("/v1/alerts/999", headers=_headers())
+    resp = client.get("/api/v1/alerts/999", headers=_headers())
     assert resp.status_code == 404

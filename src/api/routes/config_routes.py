@@ -10,4 +10,12 @@ async def get_config(section: str | None = None) -> dict:
     if section:
         val = settings.get(section)
         return {section: val} if val else {}
-    return {}
+    from src.core.config import _ENV_KEY_MAP
+    sections = {}
+    for key in _ENV_KEY_MAP:
+        top = key.split(".")[0]
+        if top not in sections:
+            val = settings.get(top)
+            if val is not None:
+                sections[top] = val
+    return sections

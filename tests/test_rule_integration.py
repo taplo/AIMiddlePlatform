@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 
 from src.core.database import Base, Rule, RuleBinding, Alert
-from src.pipeline.condition_handler import condition_handler, init_session_factory
+from src.pipeline.condition_handler import condition_handler
 from src.pipeline.aggregate_handler import aggregate_handler
 
 
@@ -71,34 +71,32 @@ async def test_aggregate_condition_flow(db_engine):
         await session.flush()
         await session.commit()
 
-    factory = async_sessionmaker(db_engine, expire_on_commit=False)
-    init_session_factory(factory)
-
-    agg_result = await aggregate_handler(
-        {"camera_id": "cam-agg"},
-        {
-            "detect_objects": {
-                "detections": [{"label": "car", "bbox": [0, 0, 2, 2], "confidence": 0.9}]
+    async with AsyncSession(db_engine) as cond_session:
+        agg_result = await aggregate_handler(
+            {"camera_id": "cam-agg"},
+            {
+                "detect_objects": {
+                    "detections": [{"label": "car", "bbox": [0, 0, 2, 2], "confidence": 0.9}]
+                },
+                "detect_faces": {
+                    "detections": [{"label": "person", "bbox": [5, 5, 6, 6], "confidence": 0.95}]
+                },
             },
-            "detect_faces": {
-                "detections": [{"label": "person", "bbox": [5, 5, 6, 6], "confidence": 0.95}]
-            },
-        },
-        {},
-    )
-    assert len(agg_result["all_detections"]) == 2
+            {},
+        )
+        assert len(agg_result["all_detections"]) == 2
 
-    cond_result = await condition_handler(
-        {"camera_id": "cam-agg", "scene_type": "", "task_id": "task-agg"},
-        {"all_detections": agg_result["all_detections"]},
-        {"rule_refs": [rule_id]},
-    )
+        cond_result = await condition_handler(
+            {"camera_id": "cam-agg", "scene_type": "", "task_id": "task-agg", "db_session": cond_session},
+            {"all_detections": agg_result["all_detections"]},
+            {"rule_refs": [rule_id]},
+        )
 
-    assert cond_result["triggered"] is True
-    assert len(cond_result["condition_results"]) == 1
-    cr = cond_result["condition_results"][0]
-    assert cr["rule_id"] == rule_id
-    assert cr["rule_type"] == "count_threshold"
+        assert cond_result["triggered"] is True
+        assert len(cond_result["condition_results"]) == 1
+        cr = cond_result["condition_results"][0]
+        assert cr["rule_id"] == rule_id
+        assert cr["rule_type"] == "count_threshold"
 
     async with AsyncSession(db_engine) as session:
         alerts = (await session.execute(select(Alert))).scalars().all()

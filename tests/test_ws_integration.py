@@ -15,7 +15,7 @@ async def test_ws_endpoint_valid_token_accepts():
     with patch("src.api.routes.ws.ws_manager", mock_mgr):
         with patch("src.api.routes.ws.validate_ws_token", return_value=True):
             client = TestClient(app)
-            with client.websocket_connect("/ws?token=valid") as ws:
+            with client.websocket_connect("/api/v1/ws?token=valid") as ws:
                 ws.send_text("ping")
                 ws.close()
             mock_mgr.connect.assert_awaited_once()
@@ -27,5 +27,5 @@ async def test_ws_endpoint_invalid_token_rejects():
     with patch("src.api.routes.ws.validate_ws_token", return_value=False):
         client = TestClient(app)
         with pytest.raises(Exception):
-            with client.websocket_connect("/ws?token=invalid") as ws:
+            with client.websocket_connect("/api/v1/ws?token=invalid") as ws:
                 pass

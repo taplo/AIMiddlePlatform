@@ -1,19 +1,12 @@
 import pytest
 import json
 from unittest.mock import AsyncMock, MagicMock, patch
-from src.pipeline.condition_handler import condition_handler, init_session_factory
-
-
-@pytest.fixture(autouse=True)
-def _ensure_session_factory():
-    """Ensure _session_factory is set so condition_handler doesn't short-circuit."""
-    init_session_factory(MagicMock(return_value=MagicMock()))
-    yield
+from src.pipeline.condition_handler import condition_handler
 
 
 @pytest.mark.asyncio
 async def test_condition_no_rules() -> None:
-    result = await condition_handler({"camera_id": "cam-1"}, {}, {})
+    result = await condition_handler({"camera_id": "cam-1", "db_session": MagicMock()}, {}, {})
     assert result["condition_results"] == []
     assert result["triggered"] is False
 
@@ -41,15 +34,15 @@ async def test_condition_with_rule_trigger() -> None:
     mock_rule.name = "test rule"
     mock_db.get.return_value = mock_rule
 
-    mock_db.__aenter__.return_value = mock_db
-    mock_factory = MagicMock(return_value=mock_db)
-    init_session_factory(mock_factory)
-
     with patch("src.pipeline.condition_handler.RuleEngine") as MockEngine, \
          patch("src.pipeline.condition_handler.CameraRuleState") as MockState:
         MockEngine.return_value.evaluate.return_value = mock_result
 
-        result = await condition_handler({"camera_id": "cam-1", "scene_type": "", "task_id": "t1"}, {"all_detections": []}, {"rule_refs": [1]})
+        result = await condition_handler(
+            {"camera_id": "cam-1", "scene_type": "", "task_id": "t1", "db_session": mock_db},
+            {"all_detections": []},
+            {"rule_refs": [1]},
+        )
         assert result["triggered"] is True
         assert len(result["condition_results"]) == 1
         mock_db.add.assert_called_once()

@@ -2,8 +2,11 @@ import time
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy.ext.asyncio import async_sessionmaker
 
+from src.api import deps as api_deps
 from src.api.app import app
+from src.core.database import init_db
 from src.core.security import (
     APIKeyStore,
     TokenBucket,
@@ -17,6 +20,16 @@ from src.core.security import (
 )
 
 client = TestClient(app)
+
+
+@pytest.fixture(scope="module", autouse=True)
+async def _init_db():
+    engine = await init_db("sqlite+aiosqlite://")
+    factory = async_sessionmaker(engine, expire_on_commit=False)
+    prev = api_deps._session_factory
+    api_deps.init_session_factory(factory)
+    yield
+    api_deps.init_session_factory(prev)
 
 
 def test_api_key_store_add_validate() -> None:
@@ -80,25 +93,28 @@ def test_token_bucket_refills() -> None:
     assert bucket.consume() is True
 
 
-def test_rate_limiter_check() -> None:
+@pytest.mark.asyncio
+async def test_rate_limiter_check() -> None:
     limiter = RateLimiter()
-    allowed, remaining = limiter.check("key-1", rate_per_second=100)
+    allowed, remaining = await limiter.check("key-1", rate_per_second=100)
     assert allowed is True
     assert remaining > 0
 
 
-def test_rate_limiter_blocks() -> None:
+@pytest.mark.asyncio
+async def test_rate_limiter_blocks() -> None:
     limiter = RateLimiter()
-    limiter.check("limited", rate_per_second=0.01, tokens=1)
-    allowed, _ = limiter.check("limited", rate_per_second=0.01, tokens=1)
+    await limiter.check("limited", rate_per_second=0.01, tokens=1)
+    allowed, _ = await limiter.check("limited", rate_per_second=0.01, tokens=1)
     assert allowed is False
 
 
-def test_rate_limiter_reset() -> None:
+@pytest.mark.asyncio
+async def test_rate_limiter_reset() -> None:
     limiter = RateLimiter()
-    limiter.check("key-1", rate_per_second=1, tokens=1)
-    limiter.reset("key-1")
-    allowed, _ = limiter.check("key-1", rate_per_second=1, tokens=1)
+    await limiter.check("key-1", rate_per_second=1, tokens=1)
+    await limiter.reset("key-1")
+    allowed, _ = await limiter.check("key-1", rate_per_second=1, tokens=1)
     assert allowed is True
 
 
@@ -122,13 +138,13 @@ def test_path_classification() -> None:
 
 
 def test_middleware_requires_auth() -> None:
-    resp = client.get("/v1/tasks")
+    resp = client.get("/api/v1/tasks")
     assert resp.status_code == 401
     assert "Authentication required" in resp.text
 
 
 def test_middleware_rejects_invalid_api_key() -> None:
-    resp = client.get("/v1/tasks", headers={"X-API-Key": "invalid"})
+    resp = client.get("/api/v1/tasks", headers={"X-API-Key": "invalid"})
     assert resp.status_code == 401
     assert "Invalid API key" in resp.text
 
@@ -136,23 +152,23 @@ def test_middleware_rejects_invalid_api_key() -> None:
 def test_middleware_valid_api_key_passes() -> None:
     store = get_api_key_store()
     store.add_key("test", "valid-key-12345678", rate_per_second=100)
-    resp = client.get("/v1/tasks", headers={"X-API-Key": "valid-key-12345678"})
+    resp = client.get("/api/v1/tasks", headers={"X-API-Key": "valid-key-12345678"})
     assert resp.status_code in (200, 500)
     if resp.status_code == 200:
         assert "X-RateLimit-Remaining" in resp.headers
 
 
 def test_middleware_exempt_paths_skip_auth() -> None:
-    resp = client.get("/v1/analyze/ping")
+    resp = client.get("/api/v1/analyze/ping")
     assert resp.status_code == 200
 
 
 def test_middleware_rate_limit_exceeded() -> None:
     store = get_api_key_store()
     store.add_key("ratelimit-test", "rate-limited-key-999", rate_per_second=0.01)
-    resp = client.get("/v1/tasks", headers={"X-API-Key": "rate-limited-key-999"})
+    resp = client.get("/api/v1/tasks", headers={"X-API-Key": "rate-limited-key-999"})
     assert resp.status_code in (200, 500)
-    resp2 = client.get("/v1/tasks", headers={"X-API-Key": "rate-limited-key-999"})
+    resp2 = client.get("/api/v1/tasks", headers={"X-API-Key": "rate-limited-key-999"})
     assert resp2.status_code == 429
 
 
@@ -161,7 +177,7 @@ def test_middleware_jwt_still_works_for_business() -> None:
     if resp_login.status_code != 200:
         pytest.skip("Admin auth not available")
     token = resp_login.json()["access_token"]
-    resp = client.get("/v1/tasks", headers={"Authorization": f"Bearer {token}"})
+    resp = client.get("/api/v1/tasks", headers={"Authorization": f"Bearer {token}"})
     assert resp.status_code in (200, 500)
 
 

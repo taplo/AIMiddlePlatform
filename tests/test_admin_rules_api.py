@@ -3,6 +3,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from src.api.app import app
+from src.api import deps as api_deps
 from src.api.routes import admin_rules as admin_rules_route
 from src.core.database import init_db, Rule, RuleBinding
 
@@ -19,10 +20,10 @@ def _get_token() -> str:
 async def _setup_db():
     engine = await init_db("sqlite+aiosqlite://")
     factory = async_sessionmaker(engine, expire_on_commit=False)
-    prev = admin_rules_route._db_session_factory
-    admin_rules_route.init_db_session_factory(factory)
+    prev = api_deps._session_factory
+    api_deps.init_session_factory(factory)
     yield
-    admin_rules_route.init_db_session_factory(prev)
+    api_deps.init_session_factory(prev)
 
 
 def _auth_headers() -> dict:
