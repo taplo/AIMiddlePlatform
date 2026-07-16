@@ -7,7 +7,7 @@ from src.ingestion.video_cache import get_cache
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/v1/video-cache", tags=["video_cache"])
+router = APIRouter(prefix="/api/v1/video-cache", tags=["video_cache"])
 
 
 @router.get("/stats")

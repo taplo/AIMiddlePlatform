@@ -6,10 +6,17 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-BUSINESS_PREFIXES = ("/api/v1/analyze", "/api/v1/tasks", "/api/v1/alerts", "/api/v1/video-cache", "/api/v1/models", "/api/v1/routing", "/api/v1/config",
-                     "/v1/analyze", "/v1/tasks", "/v1/alerts", "/v1/video-cache", "/v1/models", "/v1/routing", "/v1/config")
+BUSINESS_PREFIXES = (
+    "/api/v1/analyze", "/api/v1/tasks", "/api/v1/alerts",
+    "/api/v1/video-cache", "/api/v1/models", "/api/v1/routing",
+    "/api/v1/config",
+)
 ADMIN_PREFIXES = ("/api/v1/admin", "/api/v1/auth", "/api/v1/system")
-EXEMPT_PATHS = {"/api/v1/auth/login", "/api/v1/auth/refresh", "/api/v1/analyze/ping", "/v1/analyze/ping", "/metrics", "/health"}
+EXEMPT_PATHS = {
+    "/api/v1/auth/login", "/api/v1/auth/refresh",
+    "/api/v1/analyze/ping", "/api/v1/health",
+    "/metrics",
+}
 
 RATE_LIMIT_HEADER = "X-RateLimit-Remaining"
 
@@ -76,15 +83,44 @@ class TokenBucket:
 class RateLimiter:
     def __init__(self) -> None:
         self._buckets: dict[str, TokenBucket] = {}
+        self._redis = None
 
-    def check(self, key: str, rate_per_second: float = 10, tokens: int = 1) -> tuple[bool, int]:
+    async def _get_redis(self):
+        if self._redis is None:
+            from src.core.redis_client import get_redis
+            self._redis = await get_redis()
+        return self._redis
+
+    async def check(self, key: str, rate_per_second: float = 10, tokens: int = 1) -> tuple[bool, int]:
+        redis = await self._get_redis()
+        if redis is not None:
+            return await self._check_redis(redis, key, rate_per_second, tokens)
+        return self._check_local(key, rate_per_second, tokens)
+
+    async def _check_redis(self, redis, key: str, rate: float, tokens: int) -> tuple[bool, int]:
+        now = int(time.time())
+        window_key = f"ratelimit:{key}:{now}"
+        count = await redis.get(window_key)
+        if count is None:
+            await redis.setex(window_key, 1, tokens)
+            return True, int(rate) - tokens
+        count = int(count)
+        if count >= rate:
+            return False, 0
+        await redis.incr(window_key)
+        return True, int(rate) - count
+
+    def _check_local(self, key: str, rate_per_second: float, tokens: int) -> tuple[bool, int]:
         if key not in self._buckets or self._buckets[key].rate != rate_per_second:
             self._buckets[key] = TokenBucket(rate_per_second)
         allowed = self._buckets[key].consume(tokens)
         remaining = int(self._buckets[key].remaining())
         return allowed, remaining
 
-    def reset(self, key: str) -> None:
+    async def reset(self, key: str) -> None:
+        redis = await self._get_redis()
+        if redis is not None:
+            await redis.delete(f"ratelimit:{key}:*")
         self._buckets.pop(key, None)
 
 

@@ -5,7 +5,7 @@ from src.ws.auth import validate_ws_token
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(tags=["websocket"])
+router = APIRouter(prefix="/api/v1/ws", tags=["websocket"])
 
 ws_manager: ConnectionManager | None = None
 
@@ -15,7 +15,7 @@ def get_ws_manager() -> ConnectionManager:
     return ws_manager
 
 
-@router.websocket("/ws")
+@router.websocket("")
 async def websocket_endpoint(
     ws: WebSocket,
     token: str = Query(...),

@@ -253,7 +253,7 @@ async def auth_middleware(request: Request, call_next):
         if info is None:
             return Response('{"detail":"Invalid API key"}', 401, media_type="application/json")
         limiter = get_rate_limiter()
-        allowed, remaining = limiter.check(api_key, info["rate_per_second"])
+        allowed, remaining = await limiter.check(api_key, info["rate_per_second"])
         if not allowed:
             return Response(
                 '{"detail":"Rate limit exceeded"}',

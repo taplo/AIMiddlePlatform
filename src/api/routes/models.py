@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException
 
 from src.models.registry import ModelRegistry, ModelSpec, ModelStatus
 
-router = APIRouter(prefix="/v1/models", tags=["models"])
+router = APIRouter(prefix="/api/v1/models", tags=["models"])
 
 _registry: ModelRegistry | None = None
 

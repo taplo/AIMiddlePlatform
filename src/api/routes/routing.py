@@ -3,7 +3,7 @@ from fastapi import APIRouter
 from src.routing.scene_router import SceneRouter
 from src.routing.matchers import camera_id_matcher, scene_type_matcher
 
-router = APIRouter(prefix="/v1/routing", tags=["routing"])
+router = APIRouter(prefix="/api/v1/routing", tags=["routing"])
 
 _router: SceneRouter | None = None
 

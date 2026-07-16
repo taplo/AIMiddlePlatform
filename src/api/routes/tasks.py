@@ -10,7 +10,7 @@ from src.core.database import Task
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/v1/tasks", tags=["tasks"])
+router = APIRouter(prefix="/api/v1/tasks", tags=["tasks"])
 
 
 @router.get("")

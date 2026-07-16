@@ -14,7 +14,7 @@ def init_queue(q: RedisStreamQueue) -> None:
     _queue = q
 
 
-router = APIRouter(prefix="/v1", tags=["ingestion"])
+router = APIRouter(prefix="/api/v1", tags=["ingestion"])
 
 _streams: dict[str, StreamTask] = {}
 

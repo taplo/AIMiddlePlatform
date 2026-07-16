@@ -6,7 +6,7 @@ from src.core.security import get_api_key_store, get_rate_limiter
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/v1/admin/api-keys", tags=["admin"])
+router = APIRouter(prefix="/api/v1/admin/api-keys", tags=["admin"])
 
 
 @router.get("")
@@ -33,7 +33,7 @@ async def create_api_key(body: dict) -> dict:
 @router.delete("/{key}")
 async def delete_api_key(key: str) -> dict:
     store = get_api_key_store()
-    get_rate_limiter().reset(key)
+    await get_rate_limiter().reset(key)
     if store.remove_key(key):
         return {"status": "deleted"}
     raise HTTPException(404, "API key not found")

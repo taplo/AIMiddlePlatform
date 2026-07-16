@@ -13,7 +13,7 @@ from src.frame_preprocessor.processor import FramePreprocessor
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/v1/analyze", tags=["analyze"])
+router = APIRouter(prefix="/api/v1/analyze", tags=["analyze"])
 
 _queue: RedisStreamQueue | None = None
 MAX_FRAME_BYTES = 10 * 1024 * 1024
