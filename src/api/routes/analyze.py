@@ -3,9 +3,10 @@ import uuid
 import logging
 from datetime import datetime
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.api.deps import get_db
 from src.queue.redis_streams import RedisStreamQueue
 from src.core.database import Task, Alert
 from src.frame_preprocessor.processor import FramePreprocessor
@@ -17,18 +18,12 @@ router = APIRouter(prefix="/v1/analyze", tags=["analyze"])
 _queue: RedisStreamQueue | None = None
 MAX_FRAME_BYTES = 10 * 1024 * 1024
 
-_db_session_factory = None
 _preprocessor: FramePreprocessor | None = None
 
 
 def init_queue(queue: RedisStreamQueue) -> None:
     global _queue
     _queue = queue
-
-
-def init_db_session_factory(factory) -> None:
-    global _db_session_factory
-    _db_session_factory = factory
 
 
 def init_preprocessor(preprocessor: FramePreprocessor) -> None:
@@ -52,6 +47,7 @@ def _decode_frame(frame: str):
 async def analyze_frame(
     body: dict,
     sync: bool = Query(False, description="同步模式（调试用）"),
+    session: AsyncSession = Depends(get_db),
 ) -> dict:
     if _queue is None:
         raise HTTPException(500, "Queue not initialized")
@@ -77,42 +73,40 @@ async def analyze_frame(
             decision = _preprocessor.process(image, camera_id)
 
             if decision.action == "reject":
-                async with AsyncSession(_db_session_factory) as session:
-                    task = Task(
-                        id=task_id,
-                        camera_id=camera_id,
-                        path_taken="rejected",
-                        status="rejected",
-                        rejection_reason=decision.rejection_reason,
-                        alert_count=1,
-                    )
-                    session.add(task)
-                    alert = Alert(
-                        task_id=task_id,
-                        alert_type="quality_rejected",
-                        label=decision.rejection_reason or "unknown",
-                        bbox=None,
-                        confidence=0.0,
-                        verified_by="model",
-                        status="pending",
-                    )
-                    session.add(alert)
-                    await session.commit()
+                task = Task(
+                    id=task_id,
+                    camera_id=camera_id,
+                    path_taken="rejected",
+                    status="rejected",
+                    rejection_reason=decision.rejection_reason,
+                    alert_count=1,
+                )
+                session.add(task)
+                alert = Alert(
+                    task_id=task_id,
+                    alert_type="quality_rejected",
+                    label=decision.rejection_reason or "unknown",
+                    bbox=None,
+                    confidence=0.0,
+                    verified_by="model",
+                    status="pending",
+                )
+                session.add(alert)
+                await session.commit()
 
                 logger.info("Frame %s rejected: %s", task_id, decision.rejection_reason)
                 return {"task_id": task_id, "status": "rejected", "reason": decision.rejection_reason}
 
             if decision.action == "skip":
-                async with AsyncSession(_db_session_factory) as session:
-                    task = Task(
-                        id=task_id,
-                        camera_id=camera_id,
-                        path_taken="skipped",
-                        status="skipped",
-                        rejection_reason=decision.rejection_reason,
-                    )
-                    session.add(task)
-                    await session.commit()
+                task = Task(
+                    id=task_id,
+                    camera_id=camera_id,
+                    path_taken="skipped",
+                    status="skipped",
+                    rejection_reason=decision.rejection_reason,
+                )
+                session.add(task)
+                await session.commit()
 
                 logger.debug("Frame %s skipped by sampler", task_id)
                 return {"task_id": task_id, "status": "skipped", "reason": decision.rejection_reason}

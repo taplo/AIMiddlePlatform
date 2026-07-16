@@ -18,10 +18,9 @@ from src.models.adapters.yolo_world_adapter import YOLOWorldAdapter
 from src.pipeline.registry import PipelineRegistry
 from src.ingestion.video_cache import get_cache as get_video_cache
 from src.pipeline.executor import DAGExecutor
-from src.pipeline.dag import DAGDefinition, DAGNode, NodeType
+from src.pipeline.dag import NodeType
 from src.pipeline.verify_handler import verify_handler
-from src.pipeline.aggregate_handler import aggregate_handler
-from src.pipeline.condition_handler import condition_handler
+from src.pipeline.shared_init import register_default_pipelines, register_dag_handlers
 from src.routing.scene_router import SceneRouter
 from src.agent.tools import ToolRegistry, build_cv_tools
 from src.agent.client import QwenVLClient
@@ -137,26 +136,10 @@ def _init_fast_path() -> tuple[SceneRouter, PipelineRegistry, DAGExecutor, FastP
     executor = DAGExecutor()
     executor.register_handler(NodeType.MODEL_INFERENCE, _inference_handler)
     executor.register_handler(NodeType.VERIFY, verify_handler)
-    executor.register_handler(NodeType.AGGREGATE, aggregate_handler)
-    executor.register_handler(NodeType.CONDITION, condition_handler)
-    _register_default_pipelines(registry)
+    register_dag_handlers(executor)
+    register_default_pipelines(registry)
     handler = FastPathHandler(router, registry, executor)
     return router, registry, executor, handler
-
-
-def _register_default_pipelines(registry: PipelineRegistry) -> None:
-    pipelines = {
-        "plate_recognition": [DAGNode("detect_plate", NodeType.MODEL_INFERENCE, config={"model": "license_plate"})],
-        "object_detection": [DAGNode("detect_objects", NodeType.MODEL_INFERENCE, config={"model": "object_detection"})],
-        "face_recognition": [DAGNode("detect_faces", NodeType.MODEL_INFERENCE, config={"model": "face_recognition"})],
-        "vehicle_detection": [DAGNode("detect_vehicles", NodeType.MODEL_INFERENCE, config={"model": "vehicle_detection"})],
-        "ocr": [DAGNode("ocr_text", NodeType.MODEL_INFERENCE, config={"model": "ocr"})],
-    }
-    for name, nodes in pipelines.items():
-        dag = DAGDefinition(name=name)
-        for n in nodes:
-            dag.add_node(n)
-        registry.register(name, dag)
 
 
 def _decode_frame(frame: str):

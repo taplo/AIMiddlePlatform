@@ -1,22 +1,16 @@
 import json
 import logging
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Depends
 from sqlalchemy import select, func as sa_func
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.api.deps import get_db
 from src.core.database import Task
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/v1/tasks", tags=["tasks"])
-
-_db_session_factory = None
-
-
-def init_db_session_factory(factory) -> None:
-    global _db_session_factory
-    _db_session_factory = factory
 
 
 @router.get("")
@@ -25,22 +19,20 @@ async def list_tasks(
     camera_id: str | None = Query(None, description="Filter by camera_id"),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
+    session: AsyncSession = Depends(get_db),
 ) -> dict:
-    if _db_session_factory is None:
-        raise HTTPException(500, "DB not initialized")
-    async with _db_session_factory() as session:
-        query = select(Task).order_by(Task.created_at.desc())
-        count_query = select(sa_func.count()).select_from(Task)
-        if status:
-            query = query.where(Task.status == status)
-            count_query = count_query.where(Task.status == status)
-        if camera_id:
-            query = query.where(Task.camera_id == camera_id)
-            count_query = count_query.where(Task.camera_id == camera_id)
+    query = select(Task).order_by(Task.created_at.desc())
+    count_query = select(sa_func.count()).select_from(Task)
+    if status:
+        query = query.where(Task.status == status)
+        count_query = count_query.where(Task.status == status)
+    if camera_id:
+        query = query.where(Task.camera_id == camera_id)
+        count_query = count_query.where(Task.camera_id == camera_id)
 
-        total = (await session.execute(count_query)).scalar() or 0
-        offset = (page - 1) * page_size
-        rows = (await session.execute(query.offset(offset).limit(page_size))).scalars().all()
+    total = (await session.execute(count_query)).scalar() or 0
+    offset = (page - 1) * page_size
+    rows = (await session.execute(query.offset(offset).limit(page_size))).scalars().all()
 
     return {
         "total": total,
@@ -64,11 +56,11 @@ async def list_tasks(
 
 
 @router.get("/{task_id}/results")
-async def get_task_result(task_id: str) -> dict:
-    if _db_session_factory is None:
-        raise HTTPException(500, "DB not initialized")
-    async with _db_session_factory() as session:
-        task = await session.get(Task, task_id)
+async def get_task_result(
+    task_id: str,
+    session: AsyncSession = Depends(get_db),
+) -> dict:
+    task = await session.get(Task, task_id)
     if task is None:
         raise HTTPException(404, f"Task {task_id} not found")
     return {

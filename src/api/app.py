@@ -29,10 +29,9 @@ from src.frame_preprocessor.adaptive_sampler import AdaptiveFrameSampler
 from src.frame_preprocessor.yolo_world import YOLOWorldSceneClassifier
 from src.pipeline.registry import PipelineRegistry
 from src.pipeline.executor import DAGExecutor
-from src.pipeline.dag import DAGDefinition, DAGNode, NodeType
+from src.pipeline.dag import NodeType
 from src.pipeline.verify_handler import verify_handler
-from src.pipeline.aggregate_handler import aggregate_handler
-from src.pipeline.condition_handler import condition_handler, init_session_factory as init_condition_session
+from src.pipeline.shared_init import register_default_pipelines, register_dag_handlers
 from src.routing.fast_path import FastPathHandler
 from src.agent.client import QwenVLClient
 from src.agent.tools import ToolRegistry, build_cv_tools
@@ -54,6 +53,7 @@ from src.api.routes import video_cache as video_cache_route
 from src.api.routes import alerts as alerts_route
 from src.api.routes import api_keys as api_keys_route
 from src.api.routes import ws as ws_route
+from src.api.deps import init_session_factory, get_db
 from src.api.routes.admin_rules import rules_router as admin_rules_router, bindings_router as admin_rule_bindings_router
 from src.ingestion.video_cache import init_cache as init_video_cache, get_cache as get_video_cache
 from src.core.security import (
@@ -77,12 +77,7 @@ async def lifespan(app: FastAPI):
     db_url = os.getenv("DATABASE_URL") or settings.get("database.url") or "sqlite+aiosqlite:///data/aimp.db"
     db_engine = await init_db(db_url)
     session_factory = async_sessionmaker(db_engine, expire_on_commit=False)
-    analyze_route.init_db_session_factory(session_factory)
-    tasks_route.init_db_session_factory(session_factory)
-    alerts_route.init_db_session_factory(session_factory)
-    from src.api.routes.admin_rules import init_db_session_factory as init_rules_db
-    init_rules_db(session_factory)
-    init_condition_session(session_factory)
+    init_session_factory(session_factory)
     _init_components()
     init_log_buffer(maxlen=2000)
     from src.core.redis_client import get_redis, close_redis
@@ -153,9 +148,8 @@ def _init_components() -> None:
     executor = DAGExecutor()
     executor.register_handler(NodeType.MODEL_INFERENCE, _inference_handler)
     executor.register_handler(NodeType.VERIFY, verify_handler)
-    executor.register_handler(NodeType.AGGREGATE, aggregate_handler)
-    executor.register_handler(NodeType.CONDITION, condition_handler)
-    _register_default_pipelines(pipeline_registry)
+    register_dag_handlers(executor)
+    register_default_pipelines(pipeline_registry)
     logger.info("Registered %d pipelines", len(pipeline_registry.list()))
     init_pipeline_registry(pipeline_registry)
 
@@ -193,31 +187,6 @@ def _init_components() -> None:
 
     init_security()
     logger.info("Initialized security layer")
-
-
-def _register_default_pipelines(registry: PipelineRegistry) -> None:
-    pipelines = {
-        "plate_recognition": [
-            DAGNode("detect_plate", NodeType.MODEL_INFERENCE, config={"model": "license_plate"}),
-        ],
-        "object_detection": [
-            DAGNode("detect_objects", NodeType.MODEL_INFERENCE, config={"model": "object_detection"}),
-        ],
-        "face_recognition": [
-            DAGNode("detect_faces", NodeType.MODEL_INFERENCE, config={"model": "face_recognition"}),
-        ],
-        "vehicle_detection": [
-            DAGNode("detect_vehicles", NodeType.MODEL_INFERENCE, config={"model": "vehicle_detection"}),
-        ],
-        "ocr": [
-            DAGNode("ocr_text", NodeType.MODEL_INFERENCE, config={"model": "ocr"}),
-        ],
-    }
-    for name, nodes in pipelines.items():
-        dag = DAGDefinition(name=name)
-        for n in nodes:
-            dag.add_node(n)
-        registry.register(name, dag)
 
 
 app = FastAPI(
