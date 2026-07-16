@@ -5,6 +5,7 @@ from collections import deque
 from dataclasses import dataclass, field
 from typing import Any
 
+import cv2
 import numpy as np
 
 logger = logging.getLogger(__name__)
@@ -17,13 +18,21 @@ _MAX_DURATION = 300.0
 
 @dataclass
 class CachedFrame:
-    data: np.ndarray
+    data: bytes
     timestamp: float
     task_id: str = ""
     metadata: dict[str, Any] = field(default_factory=dict)
+    _decoded: np.ndarray | None = field(default=None, repr=False)
 
     def memory_bytes(self) -> int:
-        return self.data.nbytes + sys.getsizeof(self.metadata)
+        return sys.getsizeof(self.data) + sys.getsizeof(self.metadata)
+
+    def decode(self) -> np.ndarray:
+        if self._decoded is not None:
+            return self._decoded
+        arr = np.frombuffer(self.data, dtype=np.uint8)
+        self._decoded = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+        return self._decoded
 
 
 class VideoRingBuffer:
@@ -44,7 +53,8 @@ class VideoRingBuffer:
         if camera_id not in self._buffers:
             self._buffers[camera_id] = deque()
         now = time.time()
-        cf = CachedFrame(data=frame, timestamp=now, task_id=task_id, metadata=metadata or {})
+        _, buf = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
+        cf = CachedFrame(data=buf.tobytes(), timestamp=now, task_id=task_id, metadata=metadata or {})
         self._buffers[camera_id].append(cf)
         self._trim(camera_id)
         self._enforce_memory_limit()

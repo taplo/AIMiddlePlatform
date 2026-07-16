@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import time
+from collections import OrderedDict
 from typing import Any
 
 from src.pipeline.executor import DAGExecutor
@@ -11,10 +12,21 @@ logger = logging.getLogger(__name__)
 
 
 class InferenceOrchestrator:
-    def __init__(self, model_registry: ModelRegistry) -> None:
+    def __init__(self, model_registry: ModelRegistry, max_concurrent: int = 5) -> None:
         self.model_registry = model_registry
         self._executor = DAGExecutor()
         self._adapters: dict[str, ModelAdapter] = {}
+        self._max_concurrent = max_concurrent
+        self._active_sessions: OrderedDict[str, float] = OrderedDict()
+
+    def _acquire_session(self, model_id: str) -> None:
+        now = time.monotonic()
+        self._active_sessions[model_id] = now
+        self._active_sessions.move_to_end(model_id)
+        if len(self._active_sessions) > self._max_concurrent:
+            oldest = next(iter(self._active_sessions))
+            del self._active_sessions[oldest]
+            logger.warning("LRU evicting oldest session: %s", oldest)
 
     def register_adapter(self, backend: str, adapter: "ModelAdapter") -> None:
         self._adapters[backend] = adapter
@@ -23,6 +35,7 @@ class InferenceOrchestrator:
         return self._executor
 
     async def infer(self, model_id: str, input_data: Any) -> dict[str, Any]:
+        self._acquire_session(model_id)
         spec = self.model_registry.get(model_id)
         if spec is None:
             raise ValueError(f"Model not found: {model_id}")
