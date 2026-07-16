@@ -34,6 +34,8 @@ class ResultCache:
         frame_hash: str,
         context_hash: str = "",
     ) -> CacheResult | None:
+        if self.redis is None:
+            return None
         exact_key = f"cache:result:{camera_id}:{frame_hash}"
         raw = await self.redis.get(exact_key)
         if raw:
@@ -87,6 +89,8 @@ class ResultCache:
         result: dict,
         context_hash: str = "",
     ) -> None:
+        if self.redis is None:
+            return
         entry = CacheResult(
             result=result,
             created_at=time.time(),
@@ -101,6 +105,8 @@ class ResultCache:
         await self.redis.expire(camera_set_key, self.ttl)
 
     async def get_stats(self) -> dict:
+        if self.redis is None:
+            return {"hits": 0, "misses": 0, "total": 0, "hit_rate": 0.0}
         hits = int(await self.redis.get("cache:stats:hits") or 0)
         misses = int(await self.redis.get("cache:stats:misses") or 0)
         total = hits + misses
