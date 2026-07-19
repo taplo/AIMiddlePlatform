@@ -60,7 +60,7 @@ from src.models.package_manager import ModelPackageManager
 from src.models.presets import register_default_models
 from src.models.registry import ModelRegistry
 from src.monitoring.log_buffer import init_log_buffer
-from src.monitoring.metrics import metrics_endpoint
+from src.monitoring.metrics import metrics_endpoint, request_latency, request_total
 from src.monitoring.trace_store import init_trace_store
 from src.monitoring.tracing import add_trace_store_exporter, init_tracing
 from src.pipeline.dag import NodeType
@@ -261,6 +261,18 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def metrics_middleware(request: Request, call_next):
+    import time
+    start = time.monotonic()
+    response = await call_next(request)
+    elapsed = time.monotonic() - start
+    request_total.labels(method=request.method, path=request.url.path, status=response.status_code).inc()
+    request_latency.labels(method=request.method, path=request.url.path).observe(elapsed)
+    return response
+
 
 app.include_router(health_router)
 app.include_router(ingest_router)

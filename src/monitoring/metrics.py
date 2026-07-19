@@ -63,26 +63,6 @@ agent_analysis_latency = Histogram(
 )
 
 
-async def metrics_middleware(scope: dict, receive: Callable, send: Callable) -> None:
-    if scope["type"] != "http":
-        return
-    path = scope.get("path", "unknown")
-    method = scope.get("method", "GET")
-    start = time.monotonic()
-    status = [200]
-
-    async def wrapped_send(message: dict) -> None:
-        if message["type"] == "http.response.start":
-            status[0] = message.get("status", 200)
-        await send(message)
-
-    try:
-        await send  # passthrough
-    finally:
-        elapsed = time.monotonic() - start
-        request_total.labels(method=method, path=path, status=status[0]).inc()
-        request_latency.labels(method=method, path=path).observe(elapsed)
-
 
 def metrics_endpoint() -> bytes:
     return generate_latest()
