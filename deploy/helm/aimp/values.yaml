@@ -1,0 +1,140 @@
+replicaCount: 2
+
+image:
+  repository: taplo/aimiddleplatform
+  tag: latest
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+podSecurityContext: {}
+securityContext: {}
+
+api:
+  service:
+    type: ClusterIP
+    port: 8000
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: 2000m
+      memory: 2Gi
+  hpa:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+worker:
+  enabled: true
+  replicaCount: 2
+  command: ["python", "-m", "src.worker"]
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: 2000m
+      memory: 2Gi
+  hpa:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+gpu:
+  enabled: false
+  nodeSelector:
+    nvidia.com/gpu: "true"
+  resources:
+    limits:
+      nvidia.com/gpu: 1
+
+redis:
+  enabled: true
+  architecture: standalone
+  image: redis:7-alpine
+  port: 6379
+  persistence:
+    enabled: true
+    size: 8Gi
+    storageClass: ""
+
+mysql:
+  enabled: false
+  image: mysql:8.0
+  port: 3306
+  database: aimp
+  user: aimp
+  persistence:
+    enabled: true
+    size: 20Gi
+    storageClass: ""
+
+ingress:
+  enabled: false
+  className: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: 50m
+  hosts:
+    - host: aimp.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+persistence:
+  data:
+    enabled: true
+    size: 10Gi
+    storageClass: ""
+    accessMode: ReadWriteOnce
+  models:
+    enabled: true
+    size: 50Gi
+    storageClass: ""
+    accessMode: ReadWriteOnce
+  logs:
+    enabled: true
+    size: 5Gi
+    storageClass: ""
+    accessMode: ReadWriteOnce
+
+config:
+  APP_ENV: production
+  LOG_LEVEL: INFO
+  QUEUE_REDIS_URL: redis://aimp-redis:6379/0
+  DATABASE_URL: sqlite+aiosqlite:///data/aimp.db
+  MODEL_STORE_PATH: /models
+  CACHE_TTL: 300
+  MAX_FRAME_SIZE: 10485760
+
+secrets:
+  jwtSecretKey: change-me-in-production
+  mysqlRootPassword: aimp_root
+  mysqlPassword: aimp_pass
+
+metrics:
+  enabled: false
+  serviceMonitor:
+    enabled: false
+    interval: 30s
+    namespace: monitoring

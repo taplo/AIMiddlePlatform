@@ -17,6 +17,7 @@ from src.agent.tools import ToolRegistry, build_cv_tools
 from src.api.deps import init_session_factory
 from src.api.routes import alerts as alerts_route
 from src.api.routes import analyze as analyze_route
+from src.api.routes import model_packages as model_packages_route
 from src.api.routes import api_keys as api_keys_route
 from src.api.routes import models as models_route
 from src.api.routes import routing as routing_route
@@ -55,6 +56,7 @@ from src.ingestion.video_cache import init_cache as init_video_cache
 from src.models.adapters.yolo_world_adapter import YOLOWorldAdapter
 from src.models.adapters.yolov8_adapter import YOLOv8Adapter
 from src.models.inference import InferenceOrchestrator
+from src.models.package_manager import ModelPackageManager
 from src.models.presets import register_default_models
 from src.models.registry import ModelRegistry
 from src.monitoring.log_buffer import init_log_buffer
@@ -237,6 +239,10 @@ def _init_components() -> None:
     init_video_cache(default_duration=30.0, max_memory=500 * 1024 * 1024)
     logger.info("Initialized video cache")
 
+    pkg_mgr = ModelPackageManager(Path("models/packages"))
+    model_packages_route.init_package_manager(pkg_mgr)
+    logger.info("Initialized model package manager")
+
     init_security()
     logger.info("Initialized security layer")
 
@@ -277,6 +283,7 @@ app.include_router(admin_rules_router)
 app.include_router(admin_rule_bindings_router)
 app.include_router(api_keys_route.router)
 app.include_router(ws_route.router)
+app.include_router(model_packages_route.router)
 
 
 @app.middleware("http")

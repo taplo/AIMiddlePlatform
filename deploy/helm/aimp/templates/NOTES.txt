@@ -1,0 +1,24 @@
+AI Middle Platform (aimp) deployed successfully.
+
+Release name: {{ .Release.Name }}
+Namespace: {{ .Release.Namespace }}
+App version: {{ .Chart.AppVersion }}
+
+1. Get API URL:
+   export POD_NAME=$(kubectl get pods --namespace {{ .Release.Namespace }} -l "app.kubernetes.io/name={{ include "aimp.name" . }},app.kubernetes.io/instance={{ .Release.Name }},component=api" -o jsonpath="{.items[0].metadata.name}")
+   kubectl --namespace {{ .Release.Namespace }} port-forward $POD_NAME 8000:8000
+   Then access: http://localhost:8000
+
+{{- if .Values.ingress.enabled }}
+2. Access via ingress at:
+   {{- range .Values.ingress.hosts }}
+   https://{{ .host }}
+   {{- end }}
+{{- end }}
+
+3. Default credentials: admin / admin123
+   ** CHANGE THE PASSWORD IMMEDIATELY AFTER FIRST LOGIN **
+
+{{- if .Values.gpu.enabled }}
+4. GPU acceleration is ENABLED. Nodes must have nvidia.com/gpu resource.
+{{- end }}

@@ -1,0 +1,37 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "aimp.fullname" . }}-api
+  labels:
+    {{- include "aimp.labels" . | nindent 4 }}
+    component: api
+spec:
+  type: {{ .Values.api.service.type }}
+  ports:
+    - port: {{ .Values.api.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "aimp.selectorLabels" . | nindent 4 }}
+    component: api
+
+{{- if .Values.worker.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "aimp.fullname" . }}-worker
+  labels:
+    {{- include "aimp.labels" . | nindent 4 }}
+    component: worker
+spec:
+  ports:
+    - port: 8000
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "aimp.selectorLabels" . | nindent 4 }}
+    component: worker
+{{- end }}

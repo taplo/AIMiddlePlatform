@@ -1,0 +1,56 @@
+{{- if .Values.persistence.data.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "aimp.fullname" . }}-data
+  labels:
+    {{- include "aimp.labels" . | nindent 4 }}
+    component: data
+spec:
+  accessModes:
+    - {{ .Values.persistence.data.accessMode }}
+  resources:
+    requests:
+      storage: {{ .Values.persistence.data.size }}
+  {{- with .Values.persistence.data.storageClass }}
+  storageClassName: {{ . }}
+  {{- end }}
+{{- end }}
+{{- if .Values.persistence.models.enabled }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "aimp.fullname" . }}-models
+  labels:
+    {{- include "aimp.labels" . | nindent 4 }}
+    component: models
+spec:
+  accessModes:
+    - {{ .Values.persistence.models.accessMode }}
+  resources:
+    requests:
+      storage: {{ .Values.persistence.models.size }}
+  {{- with .Values.persistence.models.storageClass }}
+  storageClassName: {{ . }}
+  {{- end }}
+{{- end }}
+{{- if .Values.persistence.logs.enabled }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "aimp.fullname" . }}-logs
+  labels:
+    {{- include "aimp.labels" . | nindent 4 }}
+    component: logs
+spec:
+  accessModes:
+    - {{ .Values.persistence.logs.accessMode }}
+  resources:
+    requests:
+      storage: {{ .Values.persistence.logs.size }}
+  {{- with .Values.persistence.logs.storageClass }}
+  storageClassName: {{ . }}
+  {{- end }}
+{{- end }}

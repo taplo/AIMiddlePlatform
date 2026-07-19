@@ -1,0 +1,21 @@
+{{- if and .Values.metrics.enabled .Values.metrics.serviceMonitor.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "aimp.fullname" . }}
+  labels:
+    {{- include "aimp.labels" . | nindent 4 }}
+  namespace: {{ .Values.metrics.serviceMonitor.namespace }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "aimp.selectorLabels" . | nindent 6 }}
+      component: api
+  endpoints:
+    - port: http
+      path: /api/v1/metrics
+      interval: {{ .Values.metrics.serviceMonitor.interval }}
+  namespaceSelector:
+    matchNames:
+      - {{ .Release.Namespace }}
+{{- end }}

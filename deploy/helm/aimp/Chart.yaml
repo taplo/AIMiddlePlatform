@@ -1,0 +1,14 @@
+apiVersion: v2
+name: aimp
+description: AI Middle Platform - CV algorithm scheduling platform
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+home: https://github.com/yourorg/aimiddleplatform
+keywords:
+  - cv
+  - ai
+  - surveillance
+  - object-detection
+sources:
+  - https://github.com/yourorg/aimiddleplatform
