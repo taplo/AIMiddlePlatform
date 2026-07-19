@@ -86,3 +86,46 @@ async def metrics_middleware(scope: dict, receive: Callable, send: Callable) -> 
 
 def metrics_endpoint() -> bytes:
     return generate_latest()
+
+
+class StatsRingBuffer:
+    def __init__(self, maxlen: int = 300) -> None:
+        self.maxlen = maxlen
+        self._timestamps: list[float] = []
+        self._qps: list[float] = []
+        self._p50: list[float] = []
+        self._p95: list[float] = []
+        self._p99: list[float] = []
+        self._err_rate: list[float] = []
+
+    def push(self, qps: float, p50: float, p95: float, p99: float, err_rate: float) -> None:
+        self._timestamps.append(time.time())
+        self._qps.append(qps)
+        self._p50.append(p50)
+        self._p95.append(p95)
+        self._p99.append(p99)
+        self._err_rate.append(err_rate)
+        if len(self._timestamps) > self.maxlen:
+            self._timestamps.pop(0)
+            self._qps.pop(0)
+            self._p50.pop(0)
+            self._p95.pop(0)
+            self._p99.pop(0)
+            self._err_rate.pop(0)
+
+    def to_dict(self) -> dict:
+        return {
+            "timestamps": [f"{t:.3f}" for t in self._timestamps],
+            "qps": self._qps[:],
+            "p50": self._p50[:],
+            "p95": self._p95[:],
+            "p99": self._p99[:],
+            "error_rate": self._err_rate[:],
+        }
+
+
+_stats_buffer = StatsRingBuffer()
+
+
+def get_stats_buffer() -> StatsRingBuffer:
+    return _stats_buffer

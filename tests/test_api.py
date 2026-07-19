@@ -33,10 +33,10 @@ def test_register_stream() -> None:
     client = TestClient(app)
     resp = client.post(
         "/api/v1/analyze/stream",
-        json={"stream_url": "rtsp://test/stream", "protocol": "rtsp"},
+        json={"camera_id": "cam-test", "stream_url": "rtsp://test/stream", "protocol": "rtsp"},
         headers=_headers(),
     )
     assert resp.status_code == 200
     data = resp.json()
-    assert data["stream_url"] == "rtsp://test/stream"
+    assert data["camera_id"] == "cam-test"
     assert data["protocol"] == "rtsp"

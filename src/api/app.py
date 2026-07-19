@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import os
 from contextlib import asynccontextmanager
@@ -32,7 +33,6 @@ from src.api.routes.admin_rules import bindings_router as admin_rule_bindings_ro
 from src.api.routes.admin_rules import rules_router as admin_rules_router
 from src.api.routes.config_routes import router as config_router
 from src.api.routes.health import router as health_router
-from src.api.routes.ingest import init_queue
 from src.api.routes.ingest import router as ingest_router
 from src.core.config import settings
 from src.core.security import (
@@ -98,7 +98,54 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning("WebSocket manager unavailable: %s", e)
         ws_route.ws_manager = None
+
+    from src.monitoring.metrics import StatsRingBuffer, inference_latency, inference_total
+
+    _stats_buffer = StatsRingBuffer()
+
+    async def _record_stats() -> None:
+        while True:
+            await asyncio.sleep(1)
+            try:
+                inf_total = 0
+                for metric in inference_total.collect():
+                    for sample in metric.samples:
+                        inf_total += int(sample.value)
+                qps = inf_total / 60.0
+
+                hist_sample = inference_latency.collect()
+                p50 = p95 = p99 = 0.0
+                if hist_sample:
+                    buckets = {}
+                    for sample in hist_sample[0].samples:
+                        if sample.name.endswith("_bucket"):
+                            le = float(sample.labels.get("le", "0"))
+                            buckets[le] = sample.value
+                    total = sum(buckets.values())
+                    cum = 0
+                    for le, count in sorted(buckets.items()):
+                        cum += count
+                        if total > 0 and cum / total >= 0.50 and p50 == 0:
+                            p50 = le
+                        if total > 0 and cum / total >= 0.95 and p95 == 0:
+                            p95 = le
+                        if total > 0 and cum / total >= 0.99 and p99 == 0:
+                            p99 = le
+                _stats_buffer.push(qps, p50, p95, p99, 0.0)
+            except Exception:
+                pass
+
+    _stats_task = asyncio.create_task(_record_stats(), name="stats-recorder")
+    logger.info("Stats recorder started")
+
     yield
+
+    _stats_task.cancel()
+    try:
+        await _stats_task
+    except asyncio.CancelledError:
+        pass
+    logger.info("Stats recorder stopped")
     if ws_route.ws_manager is not None:
         await ws_route.ws_manager.stop()
         logger.info("WebSocket manager stopped")
@@ -172,7 +219,6 @@ def _init_components() -> None:
     logger.info("Initialized trace store")
 
     queue = RedisStreamQueue()
-    init_queue(queue)
     analyze_route.init_queue(queue)
     logger.info("Initialized RedisStreamQueue")
 

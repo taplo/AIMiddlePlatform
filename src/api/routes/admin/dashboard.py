@@ -1,42 +1,50 @@
 from fastapi import APIRouter
-from prometheus_client.parser import text_string_to_metric_families
 
-from src.monitoring.metrics import metrics_endpoint
+from src.ingestion.stream_manager import get_manager
+from src.monitoring.metrics import get_stats_buffer, inference_latency, inference_total
 
 router = APIRouter(prefix="/api/v1/system", tags=["admin-dashboard"])
 
 
-def _parse_metrics() -> dict:
-    raw = metrics_endpoint().decode("utf-8")
-    result = {}
-    for family in text_string_to_metric_families(raw):
-        values = [sample.value for sample in family.samples]
-        result[family.name] = values
-    return result
-
-
 @router.get("/stats")
 async def system_stats() -> dict:
-    metrics = _parse_metrics()
+    mgr = get_manager()
+    mgr_stats = mgr.stats()
 
-    inference_total = metrics.get("model_inference_total", [0])
-    qps = inference_total[-1] / 60 if inference_total else 0
+    inf_total = 0
+    for metric in inference_total.collect():
+        for sample in metric.samples:
+            inf_total += int(sample.value)
 
-    cameras_total = len(metrics.get("path_decision_total", []))
-    cameras_online = cameras_total
-
-    metrics_active = metrics.get("active_streams", [0])
-    models_active = int(metrics_active[-1]) if metrics_active else 0
+    hist_sample = inference_latency.collect()
+    p99 = 0.0
+    if hist_sample:
+        buckets = {}
+        for sample in hist_sample[0].samples:
+            if sample.name.endswith("_bucket"):
+                le = float(sample.labels.get("le", "0"))
+                buckets[le] = sample.value
+        total = 0
+        cum = 0
+        for le, count in sorted(buckets.items()):
+            total += count
+            cum += count
+            if total > 0 and cum / total >= 0.99:
+                p99 = le
+                break
 
     return {
-        "qps": round(qps, 2),
-        "cameras": {"total": cameras_total, "online": cameras_online, "offline": 0},
-        "models": {"total": 6, "active": max(models_active, 6)},
-        "latency": {
-            "p50": 0,
-            "p95": 0,
-            "p99": 0,
-            "avg_ms": 0,
-        },
-        "requests_total": sum(inference_total),
+        "total_streams": mgr_stats["total_streams"],
+        "active_tasks": mgr_stats["active_tasks"],
+        "connected": mgr_stats["connected"],
+        "total_frames_kept": mgr_stats["total_frames_kept"],
+        "requests_total": inf_total,
+        "latency_p99_ms": round(p99 * 1000, 2),
+        "streams": mgr_stats["streams"],
     }
+
+
+@router.get("/stats/history")
+async def system_stats_history() -> dict:
+    buf = get_stats_buffer()
+    return buf.to_dict()

@@ -26,9 +26,10 @@ class AnalysisResult(BaseModel):
 
 
 class StreamConfig(BaseModel):
+    camera_id: str
     stream_url: str
     protocol: str = "rtsp"
-    fps: float = 1.0
+    target_fps: float = 2.0
     roi: dict[str, Any] | None = None
 
 
