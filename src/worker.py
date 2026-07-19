@@ -27,8 +27,13 @@ from src.queue.redis_streams import RedisStreamQueue
 from src.routing.fast_path import FastPathHandler
 from src.routing.scene_router import SceneRouter
 from src.ws import publish as ws_publish
+from src.monitoring.structured_log import setup_json_logging
+from prometheus_client import Counter, Histogram, start_http_server
 
 logger = logging.getLogger(__name__)
+
+worker_tasks_total = Counter("worker_tasks_total", "Total tasks processed by worker", labelnames=["status"])
+worker_tasks_latency = Histogram("worker_tasks_latency_seconds", "Worker task processing latency", buckets=(0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0))
 
 
 def _extract_detections(results: dict | None) -> list[dict]:
@@ -194,6 +199,8 @@ class Worker:
         result = await self.fast_path.process(message)
 
         latency = (asyncio.get_event_loop().time() - start) * 1000
+        worker_tasks_total.labels(status="success" if result is not None else "error").inc()
+        worker_tasks_latency.observe(latency / 1000)
         if result is None:
             result = await self.orchestrator.agent.analyze(message, image_data=image)
             result.setdefault("latency_ms", latency)
@@ -250,7 +257,16 @@ class Worker:
         asyncio.create_task(_evaluate_rules_for_task(self.db, task_id, camera_id, result))
 
 
+def _start_metrics_server(port: int = 8200) -> None:
+    try:
+        start_http_server(port)
+        logger.info("Worker metrics server started on port %d", port)
+    except Exception as e:
+        logger.warning("Failed to start worker metrics server: %s", e)
+
+
 async def run_worker(db_url: str = "sqlite+aiosqlite:///data/aimp.db"):
+    _start_metrics_server()
     from src.core.database import init_db
     db = await init_db(db_url)
     worker = Worker(db)
@@ -266,5 +282,5 @@ async def run_worker(db_url: str = "sqlite+aiosqlite:///data/aimp.db"):
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
+    setup_json_logging()
     asyncio.run(run_worker())
