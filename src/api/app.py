@@ -61,6 +61,7 @@ from src.models.presets import register_default_models
 from src.models.registry import ModelRegistry
 from src.monitoring.log_buffer import init_log_buffer
 from src.monitoring.metrics import metrics_endpoint, request_latency, request_total
+from src.monitoring.request_logger import RequestLoggingMiddleware
 from src.monitoring.structured_log import setup_json_logging
 from src.monitoring.trace_store import init_trace_store
 from src.monitoring.tracing import add_trace_store_exporter, init_tracing
@@ -263,6 +264,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.add_middleware(RequestLoggingMiddleware)
 
 
 @app.middleware("http")
