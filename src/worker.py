@@ -155,7 +155,7 @@ def _decode_frame(frame: str):
         return None
 
 
-def _inference_handler(context: dict, input_data: dict, node_config: dict) -> dict:
+async def _inference_handler(context: dict, input_data: dict, node_config: dict) -> dict:
     model_id = node_config.get("model", "")
     if not model_id:
         return {"error": "no model_id in node_config"}
@@ -165,7 +165,7 @@ def _inference_handler(context: dict, input_data: dict, node_config: dict) -> di
     image = _decode_frame(raw)
     if image is None:
         return {"error": "failed to decode frame"}
-    result = asyncio.run(_inference.infer(model_id, {"image": image}))
+    result = await _inference.infer(model_id, {"image": image})
     return result
 
 

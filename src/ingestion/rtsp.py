@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import time
 from collections.abc import AsyncIterator
 
 import cv2
@@ -20,11 +21,12 @@ class RTSPStreamReader(StreamReader):
 
     async def connect(self) -> None:
         loop = asyncio.get_event_loop()
-        self._cap = await loop.run_in_executor(
+        cap = await loop.run_in_executor(
             None, lambda: cv2.VideoCapture(self.stream_url)
         )
-        if self._cap is not None and not self._cap.isOpened():
+        if not cap.isOpened():
             raise ConnectionError(f"Failed to open RTSP stream: {self.stream_url}")
+        self._cap = cap
         self._running = True
         logger.info("Connected to %s (%s)", self.camera_id, self.stream_url)
 
@@ -32,7 +34,6 @@ class RTSPStreamReader(StreamReader):
         if self._cap is None:
             return
         loop = asyncio.get_event_loop()
-        interval = 1.0 / self.target_fps if self.target_fps > 0 else 0
 
         while self._running:
             ret, frame_data = await loop.run_in_executor(None, self._cap.read)
@@ -44,12 +45,9 @@ class RTSPStreamReader(StreamReader):
             yield Frame(
                 data=frame_data,
                 camera_id=self.camera_id,
-                timestamp=asyncio.get_event_loop().time(),
+                timestamp=time.monotonic(),
                 frame_number=self._frame_count,
             )
-
-            if interval > 0:
-                await asyncio.sleep(interval)
 
     async def disconnect(self) -> None:
         self._running = False

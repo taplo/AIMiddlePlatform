@@ -118,7 +118,7 @@ def _decode_frame(frame: str):
         return None
 
 
-def _inference_handler(context: dict, input_data: dict, node_config: dict) -> dict:
+async def _inference_handler(context: dict, input_data: dict, node_config: dict) -> dict:
     global _inference_orchestrator
     model_id = node_config.get("model", "")
     if not model_id:
@@ -129,8 +129,7 @@ def _inference_handler(context: dict, input_data: dict, node_config: dict) -> di
     image = _decode_frame(raw)
     if image is None:
         return {"error": "failed to decode frame"}
-    import asyncio
-    result = asyncio.run(_inference_orchestrator.infer(model_id, {"image": image}))
+    result = await _inference_orchestrator.infer(model_id, {"image": image})
     return result
 
 
