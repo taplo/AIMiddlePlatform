@@ -1,5 +1,4 @@
 import time
-from collections.abc import Callable
 
 from prometheus_client import Counter, Gauge, Histogram, generate_latest
 
