@@ -26,7 +26,17 @@ async def test_health() -> None:
         resp = await client.get("/api/v1/health")
     assert resp.status_code == 200
     data = resp.json()
-    assert data["status"] == "ok"
+    assert data["service"] == "aimiddleplatform"
+    assert data["version"] == "0.1.0"
+    assert "uptime_seconds" in data
+    assert isinstance(data["uptime_seconds"], int)
+    checks = data["checks"]
+    assert "database" in checks
+    assert "redis" in checks
+    assert "llm" in checks
+    assert "model_registry" in checks
+    for check_name in ("database", "redis", "llm", "model_registry"):
+        assert "status" in checks[check_name]
 
 
 def test_register_stream() -> None:
