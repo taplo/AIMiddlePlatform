@@ -6,6 +6,7 @@ router = APIRouter(prefix="/api/v1/config", tags=["config"])
 
 
 @router.get("")
+@router.get("/")
 async def get_config(section: str | None = None) -> dict:
     if section:
         val = settings.get(section)

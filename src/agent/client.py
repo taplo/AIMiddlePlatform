@@ -162,6 +162,13 @@ class QwenVLClient(LLMClient):
 
         raise LLMAPIError("Max retries exceeded")
 
+    async def ping(self) -> bool:
+        try:
+            resp = await self._http.get(f"{self.api_url}/models", timeout=5.0)
+            return resp.status_code < 500
+        except Exception:
+            return False
+
     async def aclose(self) -> None:
         await self._http.aclose()
 

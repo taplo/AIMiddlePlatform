@@ -3,8 +3,11 @@ import logging
 import os
 from contextlib import asynccontextmanager
 
+from pathlib import Path
+
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 
 from src.agent.agent import CVAgent
@@ -28,6 +31,7 @@ from src.api.routes.admin.logs import router as admin_logs_router
 from src.api.routes.admin.models import router as admin_models_router
 from src.api.routes.admin.pipelines import init_pipeline_registry
 from src.api.routes.admin.pipelines import router as admin_pipelines_router
+from src.api.routes.admin.notifications import router as admin_notifications_router
 from src.api.routes.admin.traces import router as admin_traces_router
 from src.api.routes.admin_rules import bindings_router as admin_rule_bindings_router
 from src.api.routes.admin_rules import rules_router as admin_rules_router
@@ -266,6 +270,7 @@ app.include_router(admin_agent_router)
 app.include_router(admin_pipelines_router)
 app.include_router(admin_logs_router)
 app.include_router(admin_traces_router)
+app.include_router(admin_notifications_router)
 app.include_router(video_cache_route.router)
 app.include_router(alerts_route.router)
 app.include_router(admin_rules_router)
@@ -320,5 +325,9 @@ async def auth_middleware(request: Request, call_next):
 async def get_metrics() -> Response:
     return Response(content=metrics_endpoint(), media_type="text/plain")
 
+
+frontend_dist = Path(__file__).resolve().parent.parent.parent / "src" / "frontend" / "dist"
+if frontend_dist.is_dir():
+    app.mount("/", StaticFiles(directory=str(frontend_dist), html=True), name="frontend")
 
 FastAPIInstrumentor.instrument_app(app, tracer_provider=init_tracing())

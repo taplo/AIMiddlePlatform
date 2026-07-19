@@ -5,6 +5,12 @@ export interface SystemStats {
   active_tasks: number
   connected: number
   total_frames_kept: number
+  requests_total: number
+  latency_p99_ms: number
+  fast_path_pct: number
+  agent_path_pct: number
+  gpu_util_pct: number
+  gpu_memory_pct: number
   streams: any[]
 }
 

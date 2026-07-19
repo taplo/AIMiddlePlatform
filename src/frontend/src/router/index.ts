@@ -24,6 +24,21 @@ const routes: RouteRecordRaw[] = [
         name: "Cameras",
         component: () => import("../views/cameras/Index.vue"),
       },
+      {
+        path: "models",
+        name: "Models",
+        component: () => import("../views/models/Index.vue"),
+      },
+      {
+        path: "scenes",
+        name: "Scenes",
+        component: () => import("../views/scenes/Index.vue"),
+      },
+      {
+        path: "alerts",
+        name: "Alerts",
+        component: () => import("../views/alerts/Index.vue"),
+      },
     ],
   },
 ]

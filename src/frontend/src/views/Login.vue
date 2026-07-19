@@ -38,8 +38,8 @@ async function handleLogin() {
   try {
     await auth.login(username.value, password.value)
     router.push("/")
-  } catch {
-    error.value = "Invalid credentials"
+  } catch (e: any) {
+    error.value = e?.response?.data?.detail || e?.message || "Login failed"
   } finally {
     loading.value = false
   }

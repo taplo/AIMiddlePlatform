@@ -6,6 +6,10 @@ from collections.abc import Callable
 from typing import Any
 
 from src.pipeline.dag import DAGDefinition, NodeType
+from src.resilience.circuit_breaker import get_circuit_breaker
+from src.resilience.retry import retry_with_backoff
+
+_NODE_TIMEOUT = 30.0
 
 logger = logging.getLogger(__name__)
 
@@ -47,12 +51,24 @@ class DAGExecutor:
 
                 async def run(nid: str, handler: NodeHandler) -> None:
                     input_data = {dep: results[dep] for dep in dag.nodes[nid].depends_on}
-                    if inspect.iscoroutinefunction(handler):
-                        result = await handler(context, input_data, dag.nodes[nid].config)
-                    else:
-                        result = await asyncio.to_thread(handler, context, input_data, dag.nodes[nid].config)
-                    results[nid] = result
-                    completed.add(nid)
+                    cb = get_circuit_breaker(f"node:{nid}", failure_threshold=3, recovery_timeout=30.0)
+                    try:
+                        async def _invoke():
+                            if inspect.iscoroutinefunction(handler):
+                                return await asyncio.wait_for(
+                                    handler(context, input_data, dag.nodes[nid].config),
+                                    timeout=_NODE_TIMEOUT,
+                                )
+                            return await asyncio.wait_for(
+                                asyncio.to_thread(handler, context, input_data, dag.nodes[nid].config),
+                                timeout=_NODE_TIMEOUT,
+                            )
+                        result = await cb.call(_invoke)
+                        results[nid] = result
+                        completed.add(nid)
+                    except (asyncio.TimeoutError, Exception):
+                        results[nid] = None
+                        completed.add(nid)
 
                 tasks.append(run(nid, handler))
 

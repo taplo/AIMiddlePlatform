@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 
 from src.ingestion.stream_manager import get_manager
-from src.monitoring.metrics import get_stats_buffer, inference_latency, inference_total
+from src.monitoring.metrics import get_stats_buffer, inference_latency, inference_total, path_decision_total
 
 router = APIRouter(prefix="/api/v1/system", tags=["admin-dashboard"])
 
@@ -33,6 +33,19 @@ async def system_stats() -> dict:
                 p99 = le
                 break
 
+    fast_path_count = 0
+    agent_path_count = 0
+    for metric in path_decision_total.collect():
+        for sample in metric.samples:
+            path_name = sample.labels.get("path", "")
+            if path_name == "fast":
+                fast_path_count += int(sample.value)
+            elif path_name == "agent":
+                agent_path_count += int(sample.value)
+    total_path = fast_path_count + agent_path_count
+    fast_path_pct = round(fast_path_count / total_path * 100, 1) if total_path > 0 else 0.0
+    agent_path_pct = round(agent_path_count / total_path * 100, 1) if total_path > 0 else 0.0
+
     return {
         "total_streams": mgr_stats["total_streams"],
         "active_tasks": mgr_stats["active_tasks"],
@@ -40,6 +53,10 @@ async def system_stats() -> dict:
         "total_frames_kept": mgr_stats["total_frames_kept"],
         "requests_total": inf_total,
         "latency_p99_ms": round(p99 * 1000, 2),
+        "fast_path_pct": fast_path_pct,
+        "agent_path_pct": agent_path_pct,
+        "gpu_util_pct": 0.0,
+        "gpu_memory_pct": 0.0,
         "streams": mgr_stats["streams"],
     }
 

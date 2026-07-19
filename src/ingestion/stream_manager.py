@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 import time
 from dataclasses import dataclass, field
@@ -13,6 +14,8 @@ from src.ingestion.rtsp import RTSPStreamReader
 from src.ingestion.stream import StreamReader
 from src.queue.interface import FrameQueue
 from src.queue.redis_streams import RedisStreamQueue
+
+_alert_callbacks: list = []
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +37,26 @@ class CameraStats:
 _ENCODE_QUALITY = 85
 _MAX_RECONNECT_DELAY = 60.0
 _INITIAL_RECONNECT_DELAY = 1.0
+_MAX_RECONNECT_ATTEMPTS = 50
+
+
+def register_alert_callback(cb) -> None:
+    _alert_callbacks.append(cb)
+
+
+def _publish_alert(event_type: str, camera_id: str, message: str, **extra) -> None:
+    payload = json.dumps({
+        "type": event_type,
+        "camera_id": camera_id,
+        "message": message,
+        "timestamp": time.time(),
+        **extra,
+    })
+    for cb in _alert_callbacks:
+        try:
+            cb(payload)
+        except Exception:
+            logger.debug("Alert callback failed", exc_info=True)
 
 
 def _encode_jpeg(frame: np.ndarray) -> bytes:
@@ -89,6 +112,8 @@ class CameraSession:
                     if self._frames_since_backlog_check >= self._backlog_update_interval:
                         self._frames_since_backlog_check = 0
                         self._backlog = await self._queue.backlog_size(self.camera_id)
+                        if self._backlog > 100:
+                            _publish_alert("frame_backpressure", self.camera_id, f"Backlog {self._backlog} frames, reducing FPS")
 
                     if self._extractor.should_keep(frame.data, time.monotonic()):
                         encoded = _encode_jpeg(frame.data)
@@ -106,14 +131,23 @@ class CameraSession:
                 break
             except Exception as exc:
                 self.stats.last_error = str(exc)[:200]
+                self.stats.connected = False
+                self.stats.reconnects += 1
                 logger.warning(
-                    "Camera %s error: %s, reconnecting in %.1fs",
+                    "Camera %s error (reconnect #%d): %s, delay %.1fs",
                     self.camera_id,
+                    self.stats.reconnects,
                     exc,
                     self._reconnect_delay,
                 )
-                self.stats.connected = False
-                self.stats.reconnects += 1
+                if self.stats.reconnects == 1:
+                    _publish_alert("stream_disconnected", self.camera_id, f"Stream disconnected: {exc}")
+                elif self.stats.reconnects >= _MAX_RECONNECT_ATTEMPTS:
+                    _publish_alert("stream_max_reconnect", self.camera_id, f"Max reconnects ({_MAX_RECONNECT_ATTEMPTS}) reached")
+                    logger.error("Camera %s max reconnects reached, stopping", self.camera_id)
+                    break
+                elif self.stats.reconnects % 10 == 0:
+                    _publish_alert("stream_reconnect_persistent", self.camera_id, f"Persistent reconnect (#{self.stats.reconnects})")
                 await self._disconnect_reader()
                 await asyncio.sleep(self._reconnect_delay)
                 self._reconnect_delay = min(

@@ -37,6 +37,23 @@ async def get_model(model_id: str, version: str | None = None) -> dict:
     return _spec_to_dict(spec)
 
 
+@router.post("/")
+async def register_model(body: dict) -> dict:
+    if _registry is None:
+        raise HTTPException(500, "Registry not initialized")
+    spec = ModelSpec(
+        model_id=body["model_id"],
+        name=body.get("name", body["model_id"]),
+        version=body.get("version", "1.0.0"),
+        description=body.get("description", ""),
+        backend=body.get("backend", "onnx"),
+        tags=body.get("tags", []),
+        cost_estimate=body.get("cost_estimate", "medium"),
+    )
+    _registry.register(spec)
+    return _spec_to_dict(spec)
+
+
 @router.post("/{model_id}/status")
 async def update_model_status(model_id: str, body: dict) -> dict:
     if _registry is None:
