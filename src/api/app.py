@@ -61,6 +61,7 @@ from src.models.presets import register_default_models
 from src.models.registry import ModelRegistry
 from src.monitoring.log_buffer import init_log_buffer
 from src.monitoring.metrics import metrics_endpoint, request_latency, request_total
+from src.monitoring.structured_log import setup_json_logging
 from src.monitoring.trace_store import init_trace_store
 from src.monitoring.tracing import add_trace_store_exporter, init_tracing
 from src.pipeline.dag import NodeType
@@ -86,6 +87,7 @@ async def lifespan(app: FastAPI):
     db_engine = await init_db(db_url)
     session_factory = async_sessionmaker(db_engine, expire_on_commit=False)
     init_session_factory(session_factory)
+    setup_json_logging()
     _init_components()
     init_log_buffer(maxlen=2000)
     from src.core.redis_client import close_redis, get_redis
