@@ -1,8 +1,8 @@
 from fastapi.testclient import TestClient
 
 from src.api.app import app
-from src.models.registry import ModelRegistry, ModelSpec, ModelStatus
 from src.api.routes import models as models_route
+from src.models.registry import ModelRegistry, ModelSpec, ModelStatus
 
 client = TestClient(app)
 

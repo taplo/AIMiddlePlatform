@@ -1,7 +1,6 @@
 import pytest
 
 from src.ingestion.gb28181 import GB28181Manager, GB28181StreamReader
-from src.ingestion.zlmediakit import ZLMediaKitClient
 
 
 class MockZLMClient:

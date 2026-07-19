@@ -1,5 +1,7 @@
 import logging
+
 from fastapi import HTTPException
+
 from src.api.routes.admin.auth import get_current_user
 from src.core.security import get_api_key_store
 

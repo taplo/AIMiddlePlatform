@@ -1,5 +1,4 @@
 import logging
-import time
 from typing import Any
 
 from src.agent.agent import CVAgent

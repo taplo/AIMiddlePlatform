@@ -1,11 +1,10 @@
-import json
 import httpx
 import pytest
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from src.core.database import init_db, Task
-from src.worker import Worker
+
 from src.agent.client import QwenVLClient
+from src.core.database import Task, init_db
+from src.worker import Worker
 
 
 @pytest.mark.asyncio

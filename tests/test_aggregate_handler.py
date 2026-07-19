@@ -1,4 +1,5 @@
 import pytest
+
 from src.pipeline.aggregate_handler import aggregate_handler
 
 

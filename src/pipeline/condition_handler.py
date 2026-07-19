@@ -1,9 +1,10 @@
 import json
 import logging
+
 from sqlalchemy import select
 
-from src.core.database import Rule, RuleBinding, Alert
-from src.pipeline.rule_engine import RuleEngine, CameraRuleState, Detection
+from src.core.database import Alert, Rule, RuleBinding
+from src.pipeline.rule_engine import CameraRuleState, Detection, RuleEngine
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +32,7 @@ async def condition_handler(context: dict, input_data: dict, node_config: dict) 
     for rule_id in rule_refs:
         stmt = select(RuleBinding).where(
             RuleBinding.rule_id == rule_id,
-            RuleBinding.enabled == True,
+            RuleBinding.enabled,
         )
         result = await session.execute(stmt)
         bindings = result.scalars().all()

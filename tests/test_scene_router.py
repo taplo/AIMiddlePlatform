@@ -1,5 +1,5 @@
-from src.routing.scene_router import SceneRouter
 from src.routing.matchers import camera_id_matcher, scene_type_matcher
+from src.routing.scene_router import SceneRouter
 
 
 def test_hash_based_routing() -> None:
@@ -37,5 +37,4 @@ def test_route_hot_reload(tmp_path) -> None:
     router.enable_hot_reload(route_file)
     router.check_reload()
     result = router.resolve({"test_scene": True})
-    expected_hash = SceneRouter._hash_scene({"test_scene": True})
     assert result == "test_pipeline" or result is None

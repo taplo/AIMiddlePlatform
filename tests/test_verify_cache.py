@@ -1,9 +1,10 @@
-import pytest
-import time
-from unittest.mock import MagicMock, AsyncMock
-import numpy as np
-import cv2
 import base64
+import time
+from unittest.mock import AsyncMock, MagicMock
+
+import cv2
+import numpy as np
+import pytest
 
 from src.pipeline.verify_handler import verify_handler
 
@@ -55,8 +56,9 @@ async def test_verify_cache_hit_skips_llm():
 @pytest.mark.asyncio
 async def test_verify_cache_miss_calls_llm():
     import httpx
-    from src.agent.client import QwenVLClient
+
     import src.pipeline.verify_handler as vh
+    from src.agent.client import QwenVLClient
 
     mock_cache = AsyncMock()
     mock_cache.get.return_value = None

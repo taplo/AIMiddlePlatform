@@ -1,9 +1,8 @@
 import numpy as np
-import pytest
 
+from src.frame_preprocessor.adaptive_sampler import AdaptiveFrameSampler
 from src.frame_preprocessor.processor import FramePreprocessor
 from src.frame_preprocessor.quality_filter import FrameQualityFilter
-from src.frame_preprocessor.adaptive_sampler import AdaptiveFrameSampler
 from src.frame_preprocessor.yolo_world import YOLOWorldSceneClassifier
 
 

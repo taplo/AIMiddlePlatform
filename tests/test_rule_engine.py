@@ -1,4 +1,4 @@
-from src.pipeline.rule_engine import Detection, RuleEvaluationResult, CameraRuleState, RuleEngine
+from src.pipeline.rule_engine import CameraRuleState, Detection, RuleEngine, RuleEvaluationResult
 
 
 def test_detection_defaults() -> None:

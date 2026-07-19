@@ -4,9 +4,8 @@ import time
 from collections import OrderedDict
 from typing import Any
 
-from src.pipeline.executor import DAGExecutor
-from src.pipeline.dag import NodeType
 from src.models.registry import ModelRegistry, ModelSpec
+from src.pipeline.executor import DAGExecutor
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +50,7 @@ class InferenceOrchestrator:
         elapsed = time.monotonic() - start
         logger.info("Model %s inference: %.0fms", model_id, elapsed * 1000)
         try:
-            from src.monitoring.metrics import inference_total, inference_latency
+            from src.monitoring.metrics import inference_latency, inference_total
             inference_total.labels(model_id=model_id, status="success").inc()
             inference_latency.labels(model_id=model_id).observe(elapsed)
         except Exception:

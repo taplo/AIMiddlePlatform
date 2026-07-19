@@ -1,9 +1,6 @@
-import threading
-import time
-from collections import defaultdict, deque
+from collections import deque
 from typing import Any
 
-from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExporter
 
 _store: "TraceStore | None" = None

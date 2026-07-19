@@ -1,7 +1,7 @@
 import logging
 import threading
 from collections import deque
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 _buffer: deque[dict[str, Any]] | None = None
@@ -17,7 +17,7 @@ class LogBuffer(logging.Handler):
 
     def emit(self, record: logging.LogRecord) -> None:
         entry = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "level": record.levelname,
             "logger": record.name,
             "message": record.getMessage(),

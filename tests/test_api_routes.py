@@ -2,8 +2,8 @@ import pytest
 from fastapi.testclient import TestClient
 
 from src.api.app import app
-from src.models.registry import ModelRegistry, ModelSpec
 from src.api.routes import models as models_route
+from src.models.registry import ModelRegistry, ModelSpec
 
 client = TestClient(app)
 _TEST_API_KEY = "sk-test-api-key-old-routes-0987654321"
@@ -86,8 +86,8 @@ def test_active_models() -> None:
 
 
 def test_routing_add_route() -> None:
-    from src.routing.scene_router import SceneRouter
     from src.api.routes.routing import init_router
+    from src.routing.scene_router import SceneRouter
 
     router = SceneRouter()
     init_router(router)
@@ -98,8 +98,8 @@ def test_routing_add_route() -> None:
 
 
 def test_routing_delete_route() -> None:
-    from src.routing.scene_router import SceneRouter
     from src.api.routes.routing import init_router
+    from src.routing.scene_router import SceneRouter
 
     router = SceneRouter()
     router.register_route("del_me", "p1")

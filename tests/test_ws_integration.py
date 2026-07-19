@@ -1,6 +1,8 @@
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from unittest.mock import patch, AsyncMock, MagicMock
 from fastapi.testclient import TestClient
+
 from src.api.app import app
 from src.ws.manager import ConnectionManager
 
@@ -27,5 +29,5 @@ async def test_ws_endpoint_invalid_token_rejects():
     with patch("src.api.routes.ws.validate_ws_token", return_value=False):
         client = TestClient(app)
         with pytest.raises(Exception):
-            with client.websocket_connect("/api/v1/ws?token=invalid") as ws:
+            with client.websocket_connect("/api/v1/ws?token=invalid"):
                 pass

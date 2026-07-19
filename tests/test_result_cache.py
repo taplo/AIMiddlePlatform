@@ -1,9 +1,10 @@
-import pytest
 import json
 import time
 from unittest.mock import AsyncMock
 
-from src.cache.result_cache import ResultCache, CacheResult
+import pytest
+
+from src.cache.result_cache import ResultCache
 
 
 @pytest.mark.asyncio

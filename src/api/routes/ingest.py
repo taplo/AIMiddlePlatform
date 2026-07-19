@@ -1,7 +1,6 @@
 import uuid
-from datetime import datetime
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 
 from src.core.schemas import StreamConfig, StreamTask
 from src.queue import RedisStreamQueue

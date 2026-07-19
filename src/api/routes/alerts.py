@@ -1,7 +1,8 @@
 import logging
 
-from fastapi import APIRouter, HTTPException, Query, Depends
-from sqlalchemy import select, func as sa_func
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import func as sa_func
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.deps import get_db

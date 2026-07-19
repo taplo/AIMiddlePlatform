@@ -1,5 +1,7 @@
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from unittest.mock import patch, AsyncMock, MagicMock
+
 from src.worker import Worker
 
 
@@ -11,6 +13,7 @@ async def test_save_result_publishes_analysis():
     with patch("src.worker.ws_publish", new_callable=AsyncMock) as mock_pub:
         with patch("src.worker.AsyncSession") as mock_session_cls:
             mock_session = AsyncMock()
+            mock_session.add = MagicMock()
             mock_session_cls.return_value.__aenter__.return_value = mock_session
             mock_task = MagicMock()
             mock_task.task_id = "task-1"

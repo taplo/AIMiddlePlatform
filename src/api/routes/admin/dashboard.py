@@ -28,10 +28,6 @@ async def system_stats() -> dict:
     metrics_active = metrics.get("active_streams", [0])
     models_active = int(metrics_active[-1]) if metrics_active else 0
 
-    inference_latency_buckets = metrics.get("model_inference_latency_seconds_bucket", [0])
-    inference_latency_count = metrics.get("model_inference_latency_seconds_count", [1])
-    latency_count = inference_latency_count[-1] if inference_latency_count else 1
-
     return {
         "qps": round(qps, 2),
         "cameras": {"total": cameras_total, "online": cameras_online, "offline": 0},

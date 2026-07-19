@@ -2,8 +2,8 @@ import asyncio
 import logging
 from collections.abc import AsyncIterator
 
-from src.ingestion.stream import Frame, StreamReader
 from src.ingestion.rtsp import RTSPStreamReader
+from src.ingestion.stream import Frame, StreamReader
 
 logger = logging.getLogger(__name__)
 

@@ -1,5 +1,6 @@
 import logging
-from src.monitoring.log_buffer import LogBuffer, init_log_buffer, get_logs, clear_logs
+
+from src.monitoring.log_buffer import LogBuffer, clear_logs, get_logs, init_log_buffer
 
 
 def test_log_buffer_maxlen():

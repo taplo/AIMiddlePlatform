@@ -1,5 +1,4 @@
 import numpy as np
-import pytest
 
 from src.frame_preprocessor.adaptive_sampler import AdaptiveFrameSampler
 

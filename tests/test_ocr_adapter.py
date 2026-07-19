@@ -1,4 +1,3 @@
-import numpy as np
 import pytest
 
 from src.models.adapters.ocr_adapter import OCROnnxAdapter

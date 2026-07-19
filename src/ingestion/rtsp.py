@@ -3,7 +3,6 @@ import logging
 from collections.abc import AsyncIterator
 
 import cv2
-import numpy as np
 
 from src.ingestion.stream import Frame, StreamReader
 

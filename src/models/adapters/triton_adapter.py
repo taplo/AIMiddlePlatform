@@ -1,8 +1,6 @@
 import logging
 from typing import Any
 
-import httpx
-
 from src.models.inference import ModelAdapter
 from src.models.registry import ModelSpec
 

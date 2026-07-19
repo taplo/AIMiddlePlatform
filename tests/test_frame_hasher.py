@@ -1,5 +1,5 @@
-import pytest
 import numpy as np
+
 from src.cache.frame_hasher import FrameHasher
 
 

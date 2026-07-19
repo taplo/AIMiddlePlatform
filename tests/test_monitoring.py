@@ -1,13 +1,12 @@
-import pytest
 from fastapi.testclient import TestClient
 
 from src.monitoring.metrics import (
-    request_total,
-    dag_execution_total,
     dag_execution_latency,
+    dag_execution_total,
     inference_total,
-    path_decision_total,
     metrics_endpoint,
+    path_decision_total,
+    request_total,
 )
 from src.monitoring.structured_log import JSONFormatter, log_with_fields
 from src.monitoring.tracing import get_tracer

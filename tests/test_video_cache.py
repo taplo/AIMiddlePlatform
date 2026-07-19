@@ -1,9 +1,8 @@
 import time
 
 import numpy as np
-import pytest
 
-from src.ingestion.video_cache import VideoRingBuffer, init_cache, get_cache
+from src.ingestion.video_cache import VideoRingBuffer, get_cache, init_cache
 
 
 def test_push_and_get_recent() -> None:

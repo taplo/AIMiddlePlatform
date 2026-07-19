@@ -1,10 +1,10 @@
 import logging
 
-from src.pipeline.registry import PipelineRegistry
-from src.pipeline.executor import DAGExecutor
-from src.pipeline.dag import DAGDefinition, DAGNode, NodeType
 from src.pipeline.aggregate_handler import aggregate_handler
 from src.pipeline.condition_handler import condition_handler
+from src.pipeline.dag import DAGDefinition, DAGNode, NodeType
+from src.pipeline.executor import DAGExecutor
+from src.pipeline.registry import PipelineRegistry
 
 logger = logging.getLogger(__name__)
 

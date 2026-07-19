@@ -1,4 +1,5 @@
 from collections.abc import AsyncIterator
+
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 _session_factory: async_sessionmaker[AsyncSession] | None = None

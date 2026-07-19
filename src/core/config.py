@@ -3,7 +3,6 @@ from pathlib import Path
 
 import yaml
 
-
 _ENV_KEY_MAP: dict[str, str] = {
     "queue.redis_url": "QUEUE_REDIS_URL",
     "database.url": "DATABASE_URL",

@@ -1,9 +1,8 @@
-import json
 import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.core.database import init_db, Rule, RuleBinding, Alert
+from src.core.database import Alert, Rule, RuleBinding, init_db
 
 
 @pytest.mark.asyncio

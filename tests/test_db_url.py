@@ -1,5 +1,6 @@
 import os
 from unittest.mock import patch
+
 from src.core.db_url import get_db_url_from_config, is_mysql
 
 

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Query
 
-from src.monitoring.trace_store import get_traces, get_trace_detail
+from src.monitoring.trace_store import get_trace_detail, get_traces
 
 router = APIRouter(prefix="/api/v1/traces", tags=["admin-traces"])
 

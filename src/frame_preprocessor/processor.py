@@ -4,8 +4,8 @@ from typing import Any
 
 import numpy as np
 
-from src.frame_preprocessor.quality_filter import FrameQualityFilter, QualityResult
 from src.frame_preprocessor.adaptive_sampler import AdaptiveFrameSampler, SamplingResult
+from src.frame_preprocessor.quality_filter import FrameQualityFilter, QualityResult
 from src.frame_preprocessor.yolo_world import YOLOWorldSceneClassifier
 
 logger = logging.getLogger(__name__)

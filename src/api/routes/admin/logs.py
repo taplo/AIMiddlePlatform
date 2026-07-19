@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Query
 
-from src.monitoring.log_buffer import get_logs, clear_logs
+from src.monitoring.log_buffer import clear_logs, get_logs
 
 router = APIRouter(prefix="/api/v1/logs", tags=["admin-logs"])
 

@@ -63,7 +63,7 @@ class DAGExecutor:
         elapsed = time.monotonic() - start
         logger.info("DAG %s executed in %.0fms", dag.name, elapsed * 1000)
         try:
-            from src.monitoring.metrics import dag_execution_total, dag_execution_latency
+            from src.monitoring.metrics import dag_execution_latency, dag_execution_total
             dag_execution_total.labels(dag_name=dag.name, status="success").inc()
             dag_execution_latency.labels(dag_name=dag.name).observe(elapsed)
         except Exception:

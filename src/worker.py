@@ -1,31 +1,31 @@
+import asyncio
 import json
 import logging
-import asyncio
 from typing import Any
 
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
-from src.core.database import Task, Alert
+from src.agent.agent import CVAgent
+from src.agent.client import QwenVLClient
+from src.agent.orchestrator import AgentOrchestrator
+from src.agent.tools import ToolRegistry, build_cv_tools
+from src.core.config import settings
+from src.core.database import Task
+from src.ingestion.video_cache import get_cache as get_video_cache
+from src.models.adapters.yolo_world_adapter import YOLOWorldAdapter
+from src.models.adapters.yolov8_adapter import YOLOv8Adapter
+from src.models.inference import InferenceOrchestrator
+from src.models.presets import register_default_models
+from src.models.registry import ModelRegistry
+from src.pipeline.dag import NodeType
+from src.pipeline.executor import DAGExecutor
+from src.pipeline.registry import PipelineRegistry
+from src.pipeline.shared_init import register_dag_handlers, register_default_pipelines
+from src.pipeline.verify_handler import verify_handler
 from src.queue.redis_streams import RedisStreamQueue
 from src.routing.fast_path import FastPathHandler
-from src.agent.orchestrator import AgentOrchestrator
-from src.models.inference import InferenceOrchestrator
-from src.models.registry import ModelRegistry
-from src.models.presets import register_default_models
-from src.models.adapters.yolov8_adapter import YOLOv8Adapter
-from src.models.adapters.yolo_world_adapter import YOLOWorldAdapter
-from src.pipeline.registry import PipelineRegistry
-from src.ingestion.video_cache import get_cache as get_video_cache
-from src.pipeline.executor import DAGExecutor
-from src.pipeline.dag import NodeType
-from src.pipeline.verify_handler import verify_handler
-from src.pipeline.shared_init import register_default_pipelines, register_dag_handlers
 from src.routing.scene_router import SceneRouter
-from src.agent.tools import ToolRegistry, build_cv_tools
-from src.agent.client import QwenVLClient
-from src.agent.agent import CVAgent
-from src.core.config import settings
 from src.ws import publish as ws_publish
 
 logger = logging.getLogger(__name__)
@@ -48,8 +48,8 @@ async def _evaluate_rules_for_task(
     db_engine: AsyncEngine, task_id: str, camera_id: str, result: dict
 ) -> None:
     try:
-        from src.pipeline.rule_engine import RuleEngine, CameraRuleState, Detection
-        from src.core.database import Rule, RuleBinding, Alert
+        from src.core.database import Alert, Rule, RuleBinding
+        from src.pipeline.rule_engine import CameraRuleState, Detection, RuleEngine
 
         engine = RuleEngine()
         state = CameraRuleState()
@@ -66,7 +66,7 @@ async def _evaluate_rules_for_task(
         ]
 
         async with AsyncSession(db_engine) as session:
-            stmt = select(RuleBinding).where(RuleBinding.enabled == True)
+            stmt = select(RuleBinding).where(RuleBinding.enabled)
             bindings = (await session.execute(stmt)).scalars().all()
 
             created_alerts: list[tuple[Alert, Any]] = []
@@ -144,6 +144,7 @@ def _init_fast_path() -> tuple[SceneRouter, PipelineRegistry, DAGExecutor, FastP
 
 def _decode_frame(frame: str):
     import base64
+
     import cv2
     import numpy as np
     try:

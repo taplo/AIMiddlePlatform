@@ -1,7 +1,9 @@
 import logging
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query, Depends
-from src.ws.manager import ConnectionManager
+
+from fastapi import APIRouter, Depends, Query, WebSocket, WebSocketDisconnect
+
 from src.ws.auth import validate_ws_token
+from src.ws.manager import ConnectionManager
 
 logger = logging.getLogger(__name__)
 

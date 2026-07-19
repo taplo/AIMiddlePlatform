@@ -1,11 +1,11 @@
 import pytest
-from sqlalchemy import select, func
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 
 @pytest.mark.asyncio
 async def test_init_db_creates_tables():
-    from src.core.database import init_db, Base
+    from src.core.database import Base, init_db
 
     engine = await init_db("sqlite+aiosqlite:///:memory:")
     async with engine.connect() as conn:
@@ -20,7 +20,7 @@ async def test_init_db_creates_tables():
 
 @pytest.mark.asyncio
 async def test_task_orm_insert_and_query():
-    from src.core.database import init_db, Task
+    from src.core.database import Task, init_db
 
     engine = await init_db("sqlite+aiosqlite:///:memory:")
     factory = async_sessionmaker(engine, expire_on_commit=False)
@@ -45,7 +45,7 @@ async def test_task_orm_insert_and_query():
 
 @pytest.mark.asyncio
 async def test_alert_orm_create():
-    from src.core.database import init_db, Alert
+    from src.core.database import Alert, init_db
 
     engine = await init_db("sqlite+aiosqlite:///:memory:")
     factory = async_sessionmaker(engine, expire_on_commit=False)

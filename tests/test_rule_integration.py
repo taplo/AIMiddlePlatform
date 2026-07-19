@@ -1,12 +1,13 @@
 """Integration tests for the rule-based alerting engine (end-to-end)."""
 import json
+
 import pytest
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
-from src.core.database import Base, Rule, RuleBinding, Alert
-from src.pipeline.condition_handler import condition_handler
+from src.core.database import Alert, Base, Rule, RuleBinding
 from src.pipeline.aggregate_handler import aggregate_handler
+from src.pipeline.condition_handler import condition_handler
 
 
 @pytest.fixture

@@ -1,6 +1,8 @@
-import pytest
 import json
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
+
 from src.pipeline.condition_handler import condition_handler
 
 
@@ -23,6 +25,7 @@ async def test_condition_with_rule_trigger() -> None:
     mock_result.details = {"polygon": [[0, 0], [10, 0], [10, 10], [0, 10]]}
 
     mock_db = AsyncMock()
+    mock_db.add = MagicMock()
     mock_binding = MagicMock(rule_id=1, camera_id="cam-1", scene_type=None, id=1, config_overrides=None)
     mock_db.execute.return_value = MagicMock()
     mock_db.execute.return_value.scalars.return_value.all.return_value = [mock_binding]
@@ -34,8 +37,7 @@ async def test_condition_with_rule_trigger() -> None:
     mock_rule.name = "test rule"
     mock_db.get.return_value = mock_rule
 
-    with patch("src.pipeline.condition_handler.RuleEngine") as MockEngine, \
-         patch("src.pipeline.condition_handler.CameraRuleState") as MockState:
+    with patch("src.pipeline.condition_handler.RuleEngine") as MockEngine:
         MockEngine.return_value.evaluate.return_value = mock_result
 
         result = await condition_handler(

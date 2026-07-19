@@ -3,9 +3,6 @@ import logging
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any
-
-import httpx
 
 from src.ingestion.stream import Frame, StreamReader
 from src.ingestion.zlmediakit import ZLMediaKitClient

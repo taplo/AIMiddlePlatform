@@ -1,9 +1,7 @@
 import json
-import time
 import logging
-from dataclasses import dataclass, asdict
-from typing import Any
-
+import time
+from dataclasses import asdict, dataclass
 
 logger = logging.getLogger(__name__)
 

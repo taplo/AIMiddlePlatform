@@ -1,4 +1,4 @@
-from src.models.registry import ModelRegistry, ModelSpec, ModelStatus
+from src.models.registry import ModelRegistry, ModelSpec
 
 
 def register_default_models(registry: ModelRegistry) -> None:

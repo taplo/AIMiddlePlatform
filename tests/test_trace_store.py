@@ -1,5 +1,6 @@
 import time
-from src.monitoring.trace_store import TraceStore, init_trace_store, get_traces, get_trace_detail
+
+from src.monitoring.trace_store import TraceStore
 
 
 def test_trace_store_store_and_retrieve():
@@ -43,7 +44,7 @@ def test_get_trace_detail():
 
 
 def _make_span(trace_id: str, span_id: str, name: str, duration_s: float, success: bool):
-    from opentelemetry.trace import SpanContext, TraceFlags, SpanKind
+    from opentelemetry.trace import SpanContext, SpanKind, TraceFlags
 
     _trace_id_int = int(trace_id, 16)
     _span_id_int = int(span_id, 16)

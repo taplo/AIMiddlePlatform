@@ -1,9 +1,9 @@
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, HTTPException
+from jose import JWTError, jwt
 from pydantic import BaseModel
-from jose import jwt, JWTError
 
 router = APIRouter(prefix="/api/v1/auth", tags=["admin-auth"])
 
@@ -32,7 +32,7 @@ class TokenResponse(BaseModel):
 
 def _create_token(data: dict, expires_delta: timedelta) -> str:
     payload = data.copy()
-    payload["exp"] = datetime.now(timezone.utc) + expires_delta
+    payload["exp"] = datetime.now(UTC) + expires_delta
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
 

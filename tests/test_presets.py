@@ -1,5 +1,5 @@
-from src.models.registry import ModelRegistry
 from src.models.presets import register_default_models
+from src.models.registry import ModelRegistry
 
 
 def test_default_models_registered() -> None:

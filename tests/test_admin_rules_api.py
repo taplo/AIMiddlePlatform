@@ -2,10 +2,9 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
-from src.api.app import app
 from src.api import deps as api_deps
-from src.api.routes import admin_rules as admin_rules_route
-from src.core.database import init_db, Rule, RuleBinding
+from src.api.app import app
+from src.core.database import init_db
 
 pytestmark = pytest.mark.usefixtures('_setup_db')
 client = TestClient(app)

@@ -1,69 +1,70 @@
-import os
 import logging
+import os
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request, Response, HTTPException
+from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 
-from src.api.routes.health import router as health_router
-from src.api.routes.ingest import router as ingest_router
+from src.agent.agent import CVAgent
+from src.agent.client import QwenVLClient
+from src.agent.orchestrator import AgentOrchestrator
+from src.agent.tools import ToolRegistry, build_cv_tools
+from src.api.deps import init_session_factory
+from src.api.routes import alerts as alerts_route
+from src.api.routes import analyze as analyze_route
+from src.api.routes import api_keys as api_keys_route
 from src.api.routes import models as models_route
 from src.api.routes import routing as routing_route
-from src.api.routes import analyze as analyze_route
 from src.api.routes import tasks as tasks_route
-from src.api.routes.config_routes import router as config_router
-from src.core.config import settings
-from src.monitoring.tracing import init_tracing
-from src.monitoring.metrics import metrics_endpoint
-from src.queue import RedisStreamQueue
-from src.models.registry import ModelRegistry
-from src.models.inference import InferenceOrchestrator
-from src.models.presets import register_default_models
-from src.models.adapters.yolov8_adapter import YOLOv8Adapter
-from src.models.adapters.yolo_world_adapter import YOLOWorldAdapter
-from src.routing.scene_router import SceneRouter
-from src.frame_preprocessor.processor import FramePreprocessor
-from src.frame_preprocessor.quality_filter import FrameQualityFilter
-from src.frame_preprocessor.adaptive_sampler import AdaptiveFrameSampler
-from src.frame_preprocessor.yolo_world import YOLOWorldSceneClassifier
-from src.pipeline.registry import PipelineRegistry
-from src.pipeline.executor import DAGExecutor
-from src.pipeline.dag import NodeType
-from src.pipeline.verify_handler import verify_handler
-from src.pipeline.shared_init import register_default_pipelines, register_dag_handlers
-from src.routing.fast_path import FastPathHandler
-from src.agent.client import QwenVLClient
-from src.agent.tools import ToolRegistry, build_cv_tools
-from src.agent.agent import CVAgent
-from src.agent.orchestrator import AgentOrchestrator
-from src.api.routes.admin.auth import router as admin_auth_router
-from src.api.routes.admin.auth import get_current_user
-from src.api.routes.admin.dashboard import router as admin_dashboard_router
-from src.api.routes.admin.models import router as admin_models_router
-from src.api.routes.admin.agent import router as admin_agent_router
-from src.api.routes.admin.pipelines import router as admin_pipelines_router, init_pipeline_registry
-from src.api.routes.ingest import init_queue
-from src.api.routes.admin.logs import router as admin_logs_router
-from src.api.routes.admin.traces import router as admin_traces_router
-from src.monitoring.log_buffer import init_log_buffer
-from src.monitoring.trace_store import init_trace_store
-from src.monitoring.tracing import add_trace_store_exporter
 from src.api.routes import video_cache as video_cache_route
-from src.api.routes import alerts as alerts_route
-from src.api.routes import api_keys as api_keys_route
 from src.api.routes import ws as ws_route
-from src.api.deps import init_session_factory, get_db
-from src.api.routes.admin_rules import rules_router as admin_rules_router, bindings_router as admin_rule_bindings_router
-from src.ingestion.video_cache import init_cache as init_video_cache, get_cache as get_video_cache
+from src.api.routes.admin.agent import router as admin_agent_router
+from src.api.routes.admin.auth import get_current_user
+from src.api.routes.admin.auth import router as admin_auth_router
+from src.api.routes.admin.dashboard import router as admin_dashboard_router
+from src.api.routes.admin.logs import router as admin_logs_router
+from src.api.routes.admin.models import router as admin_models_router
+from src.api.routes.admin.pipelines import init_pipeline_registry
+from src.api.routes.admin.pipelines import router as admin_pipelines_router
+from src.api.routes.admin.traces import router as admin_traces_router
+from src.api.routes.admin_rules import bindings_router as admin_rule_bindings_router
+from src.api.routes.admin_rules import rules_router as admin_rules_router
+from src.api.routes.config_routes import router as config_router
+from src.api.routes.health import router as health_router
+from src.api.routes.ingest import init_queue
+from src.api.routes.ingest import router as ingest_router
+from src.core.config import settings
 from src.core.security import (
-    init_security,
-    is_business_path,
-    is_admin_path,
-    is_exempt_path,
     get_api_key_store,
     get_rate_limiter,
+    init_security,
+    is_admin_path,
+    is_business_path,
+    is_exempt_path,
 )
+from src.frame_preprocessor.adaptive_sampler import AdaptiveFrameSampler
+from src.frame_preprocessor.processor import FramePreprocessor
+from src.frame_preprocessor.quality_filter import FrameQualityFilter
+from src.frame_preprocessor.yolo_world import YOLOWorldSceneClassifier
+from src.ingestion.video_cache import init_cache as init_video_cache
+from src.models.adapters.yolo_world_adapter import YOLOWorldAdapter
+from src.models.adapters.yolov8_adapter import YOLOv8Adapter
+from src.models.inference import InferenceOrchestrator
+from src.models.presets import register_default_models
+from src.models.registry import ModelRegistry
+from src.monitoring.log_buffer import init_log_buffer
+from src.monitoring.metrics import metrics_endpoint
+from src.monitoring.trace_store import init_trace_store
+from src.monitoring.tracing import add_trace_store_exporter, init_tracing
+from src.pipeline.dag import NodeType
+from src.pipeline.executor import DAGExecutor
+from src.pipeline.registry import PipelineRegistry
+from src.pipeline.shared_init import register_dag_handlers, register_default_pipelines
+from src.pipeline.verify_handler import verify_handler
+from src.queue import RedisStreamQueue
+from src.routing.fast_path import FastPathHandler
+from src.routing.scene_router import SceneRouter
 
 logger = logging.getLogger(__name__)
 
@@ -72,15 +73,16 @@ _inference_orchestrator: InferenceOrchestrator | None = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    from src.core.database import init_db
     from sqlalchemy.ext.asyncio import async_sessionmaker
+
+    from src.core.database import init_db
     db_url = os.getenv("DATABASE_URL") or settings.get("database.url") or "sqlite+aiosqlite:///data/aimp.db"
     db_engine = await init_db(db_url)
     session_factory = async_sessionmaker(db_engine, expire_on_commit=False)
     init_session_factory(session_factory)
     _init_components()
     init_log_buffer(maxlen=2000)
-    from src.core.redis_client import get_redis, close_redis
+    from src.core.redis_client import close_redis, get_redis
     try:
         await get_redis()
         logger.info("Redis connection established")
@@ -103,8 +105,9 @@ async def lifespan(app: FastAPI):
     await close_redis()
 
 
-def _decode_frame(frame: str) -> "np.ndarray | None":
+def _decode_frame(frame: str):
     import base64
+
     import cv2
     import numpy as np
     try:

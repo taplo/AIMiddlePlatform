@@ -1,5 +1,5 @@
-import pytest
 import numpy as np
+import pytest
 
 from src.pipeline.verify_handler import verify_handler
 
@@ -31,8 +31,9 @@ async def test_verify_no_candidates():
 @pytest.mark.asyncio
 async def test_verify_candidate_triggers_llm_call():
     import httpx
-    from src.agent.client import QwenVLClient
+
     import src.pipeline.verify_handler as vh
+    from src.agent.client import QwenVLClient
 
     mock_transport = httpx.MockTransport(lambda req: httpx.Response(200, json={
         "choices": [{"message": {
@@ -85,8 +86,9 @@ async def test_verify_no_detections():
 @pytest.mark.asyncio
 async def test_verify_edge_threshold():
     import httpx
-    from src.agent.client import QwenVLClient
+
     import src.pipeline.verify_handler as vh
+    from src.agent.client import QwenVLClient
 
     mock_transport = httpx.MockTransport(lambda req: httpx.Response(200, json={
         "choices": [{"message": {

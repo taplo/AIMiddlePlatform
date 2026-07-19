@@ -1,8 +1,8 @@
 from fastapi import APIRouter, HTTPException
 from prometheus_client.parser import text_string_to_metric_families
 
-from src.monitoring.metrics import metrics_endpoint
 import src.api.routes.models as models_module
+from src.monitoring.metrics import metrics_endpoint
 
 router = APIRouter(prefix="/api/v1/models", tags=["admin-models"])
 

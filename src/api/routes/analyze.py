@@ -1,15 +1,15 @@
 import json
-import uuid
 import logging
+import uuid
 from datetime import datetime
 
-from fastapi import APIRouter, HTTPException, Query, Depends
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.deps import get_db
-from src.queue.redis_streams import RedisStreamQueue
-from src.core.database import Task, Alert
+from src.core.database import Alert, Task
 from src.frame_preprocessor.processor import FramePreprocessor
+from src.queue.redis_streams import RedisStreamQueue
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +33,7 @@ def init_preprocessor(preprocessor: FramePreprocessor) -> None:
 
 def _decode_frame(frame: str):
     import base64
+
     import cv2
     import numpy as np
     try:

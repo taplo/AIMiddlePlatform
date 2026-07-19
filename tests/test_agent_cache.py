@@ -1,6 +1,8 @@
-import pytest
 from unittest.mock import AsyncMock
-from src.agent.agent import CVAgent, SYSTEM_PROMPT
+
+import pytest
+
+from src.agent.agent import CVAgent
 
 
 @pytest.mark.asyncio
@@ -15,7 +17,7 @@ async def test_analyze_checks_cache_before_llm() -> None:
     agent._cache = mock_cache
 
     mock_llm.chat_with_image.return_value = {"content": '{"scene_type": "indoor"}'}
-    result = await agent.analyze(
+    await agent.analyze(
         {"camera_id": "cam-1"},
         image_data=b"fake_frame_bytes",
     )

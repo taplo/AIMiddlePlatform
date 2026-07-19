@@ -1,6 +1,7 @@
 import os
-from unittest.mock import patch, MagicMock
-from src.core.storage import get_storage, put_object, get_object, delete_object, list_objects
+from unittest.mock import MagicMock, patch
+
+from src.core.storage import delete_object, get_object, get_storage, list_objects, put_object
 
 
 def test_get_storage_returns_none_when_not_configured():

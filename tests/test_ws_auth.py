@@ -1,6 +1,7 @@
-import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
+
 from fastapi import HTTPException
+
 from src.ws.auth import validate_ws_token
 
 
