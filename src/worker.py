@@ -3,6 +3,7 @@ import json
 import logging
 from typing import Any
 
+from prometheus_client import Counter, Histogram, start_http_server
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
@@ -18,6 +19,7 @@ from src.models.adapters.yolov8_adapter import YOLOv8Adapter
 from src.models.inference import InferenceOrchestrator
 from src.models.presets import register_default_models
 from src.models.registry import ModelRegistry
+from src.monitoring.structured_log import setup_json_logging
 from src.pipeline.dag import NodeType
 from src.pipeline.executor import DAGExecutor
 from src.pipeline.registry import PipelineRegistry
@@ -27,8 +29,6 @@ from src.queue.redis_streams import RedisStreamQueue
 from src.routing.fast_path import FastPathHandler
 from src.routing.scene_router import SceneRouter
 from src.ws import publish as ws_publish
-from src.monitoring.structured_log import setup_json_logging
-from prometheus_client import Counter, Histogram, start_http_server
 
 logger = logging.getLogger(__name__)
 
@@ -283,7 +283,7 @@ class Worker:
         except asyncio.QueueFull:
             try:
                 await asyncio.wait_for(self._db_queue.put(entry), timeout=5.0)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 logger.warning("db_queue full, skipping DB save for task %s camera %s", task_id, camera_id)
 
         try:
@@ -291,7 +291,7 @@ class Worker:
         except asyncio.QueueFull:
             try:
                 await asyncio.wait_for(self._rule_queue.put(entry), timeout=5.0)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 logger.warning("rule_queue full, skipping rule eval for task %s camera %s", task_id, camera_id)
 
     async def _process_with_semaphore(self, raw: str) -> None:
