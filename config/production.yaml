@@ -30,3 +30,8 @@ storage:
   secret_key: minioadmin
   bucket: aimp-results
   secure: false
+
+worker:
+  max_concurrent: 10
+  db_queue_size: 200
+  rule_queue_size: 200

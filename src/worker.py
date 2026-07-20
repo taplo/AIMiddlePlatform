@@ -178,8 +178,11 @@ _inference: InferenceOrchestrator | None = None
 
 
 class Worker:
-    def __init__(self, db_engine: AsyncEngine):
+    def __init__(self, db_engine: AsyncEngine, max_concurrent: int = 10, db_queue_size: int = 200, rule_queue_size: int = 200):
         self.db = db_engine
+        self._semaphore = asyncio.Semaphore(max_concurrent)
+        self._db_queue: asyncio.Queue = asyncio.Queue(maxsize=db_queue_size)
+        self._rule_queue: asyncio.Queue = asyncio.Queue(maxsize=rule_queue_size)
         global _inference
         _inference = _init_inference()
         _, _, _, self.fast_path = _init_fast_path()
@@ -187,6 +190,39 @@ class Worker:
         build_cv_tools(tool_registry)
         agent = CVAgent(QwenVLClient(), tool_registry)
         self.orchestrator = AgentOrchestrator(self.fast_path, agent, _inference)
+
+    async def _db_worker(self) -> None:
+        while True:
+            task_id, camera_id, result = await self._db_queue.get()
+            try:
+                import json
+                async with AsyncSession(self.db) as session:
+                    task = Task(
+                        id=task_id,
+                        camera_id=camera_id,
+                        path_taken=result.get("path", "unknown"),
+                        status="completed",
+                        result_json=json.dumps(result, default=str),
+                        latency_ms=int(result.get("latency_ms", 0)),
+                    )
+                    session.add(task)
+                    await session.commit()
+            except Exception:
+                logger.exception("_db_worker: failed for task %s camera %s", task_id, camera_id)
+            finally:
+                self._db_queue.task_done()
+
+    async def _rule_worker(self) -> None:
+        eval_sem = asyncio.Semaphore(2)
+        while True:
+            task_id, camera_id, result = await self._rule_queue.get()
+            try:
+                async with eval_sem:
+                    await _evaluate_rules_for_task(self.db, task_id, camera_id, result)
+            except Exception:
+                logger.exception("_rule_worker: failed for task %s", task_id)
+            finally:
+                self._rule_queue.task_done()
 
     async def process_one(self, message: dict) -> dict:
         task_id = message.get("task_id", "unknown")

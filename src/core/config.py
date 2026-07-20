@@ -20,6 +20,9 @@ _ENV_KEY_MAP: dict[str, str] = {
     "app.env": "APP_ENV",
     "ingestion.max_streams": "MAX_STREAMS",
     "rate_limiter.default_rate": "RATE_LIMIT_DEFAULT",
+    "worker.max_concurrent": "WORKER_MAX_CONCURRENT",
+    "worker.db_queue_size": "WORKER_DB_QUEUE_SIZE",
+    "worker.rule_queue_size": "WORKER_RULE_QUEUE_SIZE",
 }
 
 

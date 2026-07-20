@@ -1,3 +1,5 @@
+import asyncio
+
 import httpx
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -62,3 +64,27 @@ async def test_worker_falls_through_to_agent():
         task = await session.get(Task, "agent-test-001")
         assert task is not None
         assert task.path_taken == "agent"
+
+
+@pytest.mark.asyncio
+async def test_worker_backends_drain_queue():
+    db = await init_db("sqlite+aiosqlite:///:memory:")
+    worker = Worker(db, max_concurrent=5, db_queue_size=10, rule_queue_size=10)
+
+    await worker._db_queue.put(("t1", "cam1", {"path": "fast", "latency_ms": 50}))
+    await worker._rule_queue.put(("t2", "cam2", {"path": "agent", "latency_ms": 1000}))
+
+    db_task = asyncio.create_task(worker._db_worker())
+    rule_task = asyncio.create_task(worker._rule_worker())
+
+    await worker._db_queue.join()
+    await worker._rule_queue.join()
+
+    db_task.cancel()
+    rule_task.cancel()
+
+    async with AsyncSession(db) as session:
+        from sqlalchemy import select
+        tasks = (await session.execute(select(Task))).scalars().all()
+        assert len(tasks) == 1
+        assert tasks[0].id == "t1"
