@@ -3,6 +3,7 @@ from typing import Any
 
 from src.agent.agent import CVAgent
 from src.agent.client import LLMError
+from src.monitoring.tracing import trace_async
 from src.agent.health import get_health_checker
 from src.models.inference import InferenceOrchestrator
 from src.routing.fast_path import FastPathHandler
@@ -23,6 +24,7 @@ class AgentOrchestrator:
         self.inference = inference
         self._cb = get_circuit_breaker("llm-agent", failure_threshold=3, recovery_timeout=30.0)
 
+    @trace_async(span_name="agent.process", attributes={"component": "orchestrator"})
     async def process(
         self,
         frame_context: dict[str, Any],

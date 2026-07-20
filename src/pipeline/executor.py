@@ -5,6 +5,7 @@ import time
 from collections.abc import Callable
 from typing import Any
 
+from src.monitoring.tracing import trace_async
 from src.pipeline.dag import DAGDefinition, NodeType
 from src.resilience.circuit_breaker import get_circuit_breaker
 from src.resilience.retry import retry_with_backoff
@@ -23,6 +24,7 @@ class DAGExecutor:
     def register_handler(self, node_type: NodeType, handler: NodeHandler) -> None:
         self._handlers[node_type] = handler
 
+    @trace_async(span_name="dag.execute", attributes={"component": "executor"})
     async def execute(self, dag: DAGDefinition, context: dict[str, Any]) -> dict[str, Any]:
         start = time.monotonic()
         results: dict[str, Any] = {}

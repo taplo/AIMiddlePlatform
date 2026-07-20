@@ -4,6 +4,7 @@ import time
 from collections import OrderedDict
 from typing import Any
 
+from src.monitoring.tracing import trace_async
 from src.models.registry import ModelRegistry, ModelSpec
 from src.pipeline.executor import DAGExecutor
 from src.resilience.circuit_breaker import get_circuit_breaker
@@ -35,6 +36,7 @@ class InferenceOrchestrator:
     def get_pipeline_executor(self) -> DAGExecutor:
         return self._executor
 
+    @trace_async(span_name="model.infer", attributes={"component": "inference"})
     async def infer(self, model_id: str, input_data: Any) -> dict[str, Any]:
         self._acquire_session(model_id)
         spec = self.model_registry.get(model_id)
