@@ -116,7 +116,14 @@ class RateLimiter:
     async def reset(self, key: str) -> None:
         redis = await self._get_redis()
         if redis is not None:
-            await redis.delete(f"ratelimit:{key}:*")
+            cursor = 0
+            pattern = f"ratelimit:{key}:*"
+            while True:
+                cursor, keys = await redis.scan(cursor=cursor, match=pattern, count=100)
+                if keys:
+                    await redis.delete(*keys)
+                if cursor == 0:
+                    break
         self._buckets.pop(key, None)
 
 

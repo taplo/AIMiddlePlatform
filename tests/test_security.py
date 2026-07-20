@@ -2,11 +2,8 @@ import time
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy.ext.asyncio import async_sessionmaker
 
-from src.api import deps as api_deps
 from src.api.app import app
-from src.core.database import init_db
 from src.core.security import (
     APIKeyStore,
     RateLimiter,
@@ -19,16 +16,6 @@ from src.core.security import (
 )
 
 client = TestClient(app)
-
-
-@pytest.fixture(scope="module", autouse=True)
-async def _init_db():
-    engine = await init_db("sqlite+aiosqlite://")
-    factory = async_sessionmaker(engine, expire_on_commit=False)
-    prev = api_deps._session_factory
-    api_deps.init_session_factory(factory)
-    yield
-    api_deps.init_session_factory(prev)
 
 
 def test_api_key_store_add_validate() -> None:
