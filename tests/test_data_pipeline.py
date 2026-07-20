@@ -32,12 +32,14 @@ def sample_frames():
     for i in range(5):
         img = _make_test_image()
         cv2.rectangle(img, (i * 5, i * 5), (i * 5 + 10, i * 5 + 10), (255, 255, 255), -1)
-        frames.append(CollectedFrame(
-            camera_id="cam1",
-            timestamp=1000.0 + i,
-            image=img,
-            metadata={"detections": dets},
-        ))
+        frames.append(
+            CollectedFrame(
+                camera_id="cam1",
+                timestamp=1000.0 + i,
+                image=img,
+                metadata={"detections": dets},
+            )
+        )
     return frames
 
 
@@ -51,6 +53,7 @@ class TestFrameCollector:
 
             collector = FrameCollector()
             import asyncio
+
             frames = asyncio.run(collector.collect_from_directory(d, "test_cam"))
             assert len(frames) == 2
             assert all(f.camera_id == "test_cam" for f in frames)
@@ -62,6 +65,7 @@ class TestFrameCollector:
 
             collector = FrameCollector()
             import asyncio
+
             frames = asyncio.run(collector.collect_from_video(video_path, "cam1", sample_rate=10))
             assert len(frames) > 0
             assert all(f.camera_id == "cam1" for f in frames)
@@ -69,11 +73,9 @@ class TestFrameCollector:
     def test_save_frames(self):
         with tempfile.TemporaryDirectory() as tmp:
             collector = FrameCollector(output_dir=tmp)
-            frames = [
-                CollectedFrame(camera_id="cam1", timestamp=1000.0, image=_make_test_image())
-                for _ in range(3)
-            ]
+            frames = [CollectedFrame(camera_id="cam1", timestamp=1000.0, image=_make_test_image()) for _ in range(3)]
             import asyncio
+
             paths = asyncio.run(collector.save_frames(frames))
             assert len(paths) == 3
             assert all(p.exists() for p in paths)
@@ -122,6 +124,7 @@ class TestCOCOExporter:
             path = exporter.export(sample_frames, "test_dataset")
             assert path.exists()
             import json
+
             data = json.loads(path.read_text(encoding="utf-8"))
             assert len(data["images"]) == 5
             assert len(data["annotations"]) == 5
@@ -151,6 +154,7 @@ class TestDataPipeline:
                 annotator=AnnotationPipeline(Path(tmp) / "exports"),
             )
             import asyncio
+
             result = asyncio.run(
                 pipeline.run_from_directory(
                     source_dir=img_dir,
