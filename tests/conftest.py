@@ -21,4 +21,5 @@ def _reset_redis():
     yield
     import src.core.redis_client as rc
     rc._redis = None
+    rc._redis_loop_id = None
     rc._redis_unavailable = False
