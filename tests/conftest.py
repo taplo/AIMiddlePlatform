@@ -9,7 +9,16 @@ _engine = create_async_engine("sqlite+aiosqlite://", echo=False)
 @pytest.fixture(autouse=True)
 def _auto_init_db() -> None:
     prev = _session_factory
-    factory = async_sessionmaker(_engine, expire_on_commit=False)
-    init_session_factory(factory)
+    if prev is None:
+        factory = async_sessionmaker(_engine, expire_on_commit=False)
+        init_session_factory(factory)
     yield
     init_session_factory(prev)
+
+
+@pytest.fixture(autouse=True)
+def _reset_redis():
+    yield
+    import src.core.redis_client as rc
+    rc._redis = None
+    rc._redis_unavailable = False

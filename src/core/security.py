@@ -1,4 +1,3 @@
-import asyncio
 import logging
 import os
 import time
@@ -84,21 +83,11 @@ class RateLimiter:
     def __init__(self) -> None:
         self._buckets: dict[str, TokenBucket] = {}
         self._redis = None
-        self._redis_loop_id: int | None = None
 
     async def _get_redis(self):
-        if self._redis is not None:
-            try:
-                current_loop = asyncio.get_running_loop()
-                if id(current_loop) != self._redis_loop_id:
-                    await self._redis.aclose()
-                    self._redis = None
-            except RuntimeError:
-                self._redis = None
         if self._redis is None:
             from src.core.redis_client import get_redis
             self._redis = await get_redis()
-            self._redis_loop_id = id(asyncio.get_running_loop())
         return self._redis
 
     async def check(self, key: str, rate_per_second: float = 10, tokens: int = 1) -> tuple[bool, int]:
