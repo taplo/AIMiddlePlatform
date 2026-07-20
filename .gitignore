@@ -16,4 +16,5 @@ all_req.txt
 build_req.txt
 参考文献/
 *.db
+*.coverage
 /data/
