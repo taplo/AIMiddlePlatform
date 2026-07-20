@@ -13,7 +13,7 @@ spec:
       component: api
   endpoints:
     - port: http
-      path: /api/v1/metrics
+      path: /metrics
       interval: {{ .Values.metrics.serviceMonitor.interval }}
   namespaceSelector:
     matchNames:

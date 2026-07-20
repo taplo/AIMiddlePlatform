@@ -44,13 +44,13 @@ spec:
               memory: "2Gi"
           livenessProbe:
             httpGet:
-              path: /health
+              path: /api/v1/health
               port: 8000
             initialDelaySeconds: 10
             periodSeconds: 15
           readinessProbe:
             httpGet:
-              path: /health
+              path: /api/v1/health
               port: 8000
             initialDelaySeconds: 5
             periodSeconds: 10
