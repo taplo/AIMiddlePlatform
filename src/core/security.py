@@ -82,13 +82,10 @@ class TokenBucket:
 class RateLimiter:
     def __init__(self) -> None:
         self._buckets: dict[str, TokenBucket] = {}
-        self._redis = None
 
     async def _get_redis(self):
-        if self._redis is None:
-            from src.core.redis_client import get_redis
-            self._redis = await get_redis()
-        return self._redis
+        from src.core.redis_client import get_redis
+        return await get_redis()
 
     async def check(self, key: str, rate_per_second: float = 10, tokens: int = 1) -> tuple[bool, int]:
         redis = await self._get_redis()
