@@ -61,6 +61,9 @@ exclude_lines = [
     "if TYPE_CHECKING:",
 ]
 
+[tool.setuptools.packages.find]
+where = ["src"]
+
 [project.scripts]
 aimp-model = "src.models.cli:main"
 
