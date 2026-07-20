@@ -1,0 +1,57 @@
+{{- if .Values.metrics.prometheusRule.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ include "aimp.fullname" . }}
+  labels:
+    {{- include "aimp.labels" . | nindent 4 }}
+spec:
+  groups:
+    - name: aimp-alerts
+      interval: 30s
+      rules:
+        - alert: HighErrorRate
+          expr: rate(app_requests_total{status=~"5.."}[5m]) > 0.05
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "High HTTP error rate ({{ "{{ $value | humanizePercentage }}" }})"
+            description: "More than 5% of requests are returning 5xx errors"
+
+        - alert: HighLatency
+          expr: histogram_quantile(0.99, sum(rate(app_request_latency_seconds_bucket[5m])) by (le)) > 5
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "High request latency (P99 > 5s)"
+            description: "P99 latency is {{ "{{ $value | humanizeDuration }}" }}"
+
+        - alert: StreamDisconnect
+          expr: rate(stream_disconnect_total[5m]) > 10
+          for: 2m
+          labels:
+            severity: warning
+          annotations:
+            summary: "High stream disconnect rate"
+            description: "More than 10 streams disconnecting per minute"
+
+        - alert: LowThroughput
+          expr: rate(app_requests_total[5m]) < 50
+          for: 10m
+          labels:
+            severity: info
+          annotations:
+            summary: "Low request throughput"
+            description: "Request rate dropped below 50 req/min"
+
+        - alert: WorkerDown
+          expr: up{job="aimp-worker"} == 0
+          for: 1m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Worker process is down"
+            description: "Worker has been unreachable for more than 1 minute"
+{{- end }}

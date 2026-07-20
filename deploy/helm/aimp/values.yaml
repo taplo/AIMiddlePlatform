@@ -138,3 +138,5 @@ metrics:
     enabled: false
     interval: 30s
     namespace: monitoring
+  prometheusRule:
+    enabled: false
