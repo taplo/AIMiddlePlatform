@@ -29,6 +29,10 @@ async def test_worker_processes_and_saves():
     result = await worker.process_one(msg)
     assert "path" in result
 
+    db_task = asyncio.create_task(worker._db_worker())
+    await worker._db_queue.join()
+    db_task.cancel()
+
     async with AsyncSession(db) as session:
         task = await session.get(Task, "test-001")
         assert task is not None
@@ -59,6 +63,10 @@ async def test_worker_falls_through_to_agent():
     result = await worker.process_one(msg)
     assert result is not None
     assert result["path"] == "agent"
+
+    db_task = asyncio.create_task(worker._db_worker())
+    await worker._db_queue.join()
+    db_task.cancel()
 
     async with AsyncSession(db) as session:
         task = await session.get(Task, "agent-test-001")

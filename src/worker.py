@@ -230,7 +230,7 @@ class Worker:
         start = asyncio.get_event_loop().time()
 
         frame_raw = message.get("frame", "")
-        image = _decode_frame(frame_raw) if frame_raw else None
+        image = await asyncio.to_thread(_decode_frame, frame_raw) if frame_raw else None
 
         result = await self.fast_path.process(message)
 
@@ -253,23 +253,10 @@ class Worker:
             except Exception:
                 logger.warning("Failed to cache frame for %s", camera_id)
 
-        await self._save_result(task_id, camera_id, result)
+        await self._enqueue_save(task_id, camera_id, result)
         return result
 
-    async def _save_result(self, task_id: str, camera_id: str, result: dict):
-        import json
-        async with AsyncSession(self.db) as session:
-            task = Task(
-                id=task_id,
-                camera_id=camera_id,
-                path_taken=result.get("path", "unknown"),
-                status="completed",
-                result_json=json.dumps(result, default=str),
-                latency_ms=int(result.get("latency_ms", 0)),
-            )
-            session.add(task)
-            await session.commit()
-
+    async def _enqueue_save(self, task_id: str, camera_id: str, result: dict) -> None:
         if settings.get("websocket.enabled", True):
             detections = []
             if isinstance(result, dict):
@@ -290,7 +277,30 @@ class Worker:
                 "result": result,
             })
 
-        asyncio.create_task(_evaluate_rules_for_task(self.db, task_id, camera_id, result))
+        entry = (task_id, camera_id, result)
+        try:
+            self._db_queue.put_nowait(entry)
+        except asyncio.QueueFull:
+            try:
+                await asyncio.wait_for(self._db_queue.put(entry), timeout=5.0)
+            except asyncio.TimeoutError:
+                logger.warning("db_queue full, skipping DB save for task %s camera %s", task_id, camera_id)
+
+        try:
+            self._rule_queue.put_nowait(entry)
+        except asyncio.QueueFull:
+            try:
+                await asyncio.wait_for(self._rule_queue.put(entry), timeout=5.0)
+            except asyncio.TimeoutError:
+                logger.warning("rule_queue full, skipping rule eval for task %s camera %s", task_id, camera_id)
+
+    async def _process_with_semaphore(self, raw: str) -> None:
+        async with self._semaphore:
+            try:
+                msg = json.loads(raw)
+                await self.process_one(msg)
+            except Exception:
+                logger.exception("Failed to process message")
 
 
 def _start_metrics_server(port: int = 8200) -> None:
@@ -305,16 +315,20 @@ async def run_worker(db_url: str = "sqlite+aiosqlite:///data/aimp.db"):
     _start_metrics_server()
     from src.core.database import init_db
     db = await init_db(db_url)
-    worker = Worker(db)
+    worker = Worker(
+        db,
+        max_concurrent=settings.get("worker.max_concurrent", 10),
+        db_queue_size=settings.get("worker.db_queue_size", 200),
+        rule_queue_size=settings.get("worker.rule_queue_size", 200),
+    )
     queue = RedisStreamQueue()
 
-    logger.info("Worker started, consuming from aimp:tasks")
+    asyncio.create_task(worker._db_worker(), name="db-worker")
+    asyncio.create_task(worker._rule_worker(), name="rule-worker")
+
+    logger.info("Worker started (max_concurrent=%d), consuming from aimp:tasks", worker._semaphore._value)
     async for raw in queue.consume("aimp:tasks"):
-        try:
-            msg = json.loads(raw)
-            await worker.process_one(msg)
-        except Exception as e:
-            logger.error("Failed to process message: %s", e)
+        asyncio.create_task(worker._process_with_semaphore(raw))
 
 
 if __name__ == "__main__":
