@@ -1,13 +1,11 @@
 import json
 import logging
-import shutil
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 import cv2
-import numpy as np
 
 from src.data.collector import CollectedFrame
 

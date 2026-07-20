@@ -1,11 +1,10 @@
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
 
 from src.data.annotator import AnnotationPipeline
 from src.data.cleaner import CleaningReport, FrameCleaner
-from src.data.collector import CollectedFrame, FrameCollector
+from src.data.collector import FrameCollector
 
 logger = logging.getLogger(__name__)
 

@@ -1,10 +1,10 @@
 import asyncio
 import logging
 import time
+from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import AsyncIterator, Callable
 
 import cv2
 import numpy as np

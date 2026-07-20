@@ -1,6 +1,6 @@
 import hashlib
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 import cv2
 import numpy as np
