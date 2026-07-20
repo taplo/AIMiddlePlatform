@@ -93,10 +93,7 @@ class RateLimiter:
     async def check(self, key: str, rate_per_second: float = 10, tokens: int = 1) -> tuple[bool, int]:
         redis = await self._get_redis()
         if redis is not None:
-            try:
-                return await self._check_redis(redis, key, rate_per_second, tokens)
-            except (RuntimeError, ConnectionError):
-                return self._check_local(key, rate_per_second, tokens)
+            return await self._check_redis(redis, key, rate_per_second, tokens)
         return self._check_local(key, rate_per_second, tokens)
 
     async def _check_redis(self, redis, key: str, rate: float, tokens: int) -> tuple[bool, int]:
