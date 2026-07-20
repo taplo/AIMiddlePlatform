@@ -1,6 +1,6 @@
 import asyncio
-import time
 import logging
+import time
 
 from fastapi import APIRouter, Depends
 from sqlalchemy import text
@@ -52,7 +52,7 @@ async def health(db: AsyncSession = Depends(get_db)) -> dict:
         from src.agent.health import get_health_checker
         checker = get_health_checker()
         checks["llm"] = {"status": "ok", "available": checker.available}
-    except Exception as e:
+    except Exception:
         logger.exception("LLM health check failed")
         checks["llm"] = {"status": "degraded", "available": False}
         if overall == "ok":
@@ -64,7 +64,7 @@ async def health(db: AsyncSession = Depends(get_db)) -> dict:
         registry = ModelRegistry()
         models = registry.list_models()
         checks["model_registry"] = {"status": "ok", "models_count": len(models)}
-    except Exception as e:
+    except Exception:
         logger.exception("Model registry health check failed")
         checks["model_registry"] = {"status": "degraded"}
         if overall == "ok":

@@ -3,11 +3,11 @@ from typing import Any
 
 from src.agent.agent import CVAgent
 from src.agent.client import LLMError
-from src.monitoring.tracing import trace_async
 from src.agent.health import get_health_checker
 from src.models.inference import InferenceOrchestrator
-from src.routing.fast_path import FastPathHandler
+from src.monitoring.tracing import trace_async
 from src.resilience.circuit_breaker import get_circuit_breaker
+from src.routing.fast_path import FastPathHandler
 
 logger = logging.getLogger(__name__)
 

@@ -2,7 +2,6 @@ import asyncio
 import logging
 import os
 from contextlib import asynccontextmanager
-
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request, Response
@@ -17,8 +16,8 @@ from src.agent.tools import ToolRegistry, build_cv_tools
 from src.api.deps import init_session_factory
 from src.api.routes import alerts as alerts_route
 from src.api.routes import analyze as analyze_route
-from src.api.routes import model_packages as model_packages_route
 from src.api.routes import api_keys as api_keys_route
+from src.api.routes import model_packages as model_packages_route
 from src.api.routes import models as models_route
 from src.api.routes import routing as routing_route
 from src.api.routes import tasks as tasks_route
@@ -30,9 +29,9 @@ from src.api.routes.admin.auth import router as admin_auth_router
 from src.api.routes.admin.dashboard import router as admin_dashboard_router
 from src.api.routes.admin.logs import router as admin_logs_router
 from src.api.routes.admin.models import router as admin_models_router
+from src.api.routes.admin.notifications import router as admin_notifications_router
 from src.api.routes.admin.pipelines import init_pipeline_registry
 from src.api.routes.admin.pipelines import router as admin_pipelines_router
-from src.api.routes.admin.notifications import router as admin_notifications_router
 from src.api.routes.admin.traces import router as admin_traces_router
 from src.api.routes.admin_rules import bindings_router as admin_rule_bindings_router
 from src.api.routes.admin_rules import rules_router as admin_rules_router

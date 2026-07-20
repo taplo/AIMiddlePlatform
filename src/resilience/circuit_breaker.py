@@ -76,7 +76,7 @@ class CircuitBreaker:
                 result = fn(*args, **kwargs)
             self.record_success()
             return result
-        except Exception as e:
+        except Exception:
             self.record_failure()
             raise
 

@@ -125,7 +125,7 @@ def test_trace_async_decorator() -> None:
 
 
 def test_worker_metrics_defined() -> None:
-    from src.worker import worker_tasks_total, worker_tasks_latency
+    from src.worker import worker_tasks_latency, worker_tasks_total
     assert worker_tasks_total is not None
     assert worker_tasks_latency is not None
     worker_tasks_total.labels(status="test").inc()

@@ -8,7 +8,6 @@ from typing import Any
 from src.monitoring.tracing import trace_async
 from src.pipeline.dag import DAGDefinition, NodeType
 from src.resilience.circuit_breaker import get_circuit_breaker
-from src.resilience.retry import retry_with_backoff
 
 _NODE_TIMEOUT = 30.0
 
@@ -68,7 +67,7 @@ class DAGExecutor:
                         result = await cb.call(_invoke)
                         results[nid] = result
                         completed.add(nid)
-                    except (asyncio.TimeoutError, Exception):
+                    except (TimeoutError, Exception):
                         results[nid] = None
                         completed.add(nid)
 

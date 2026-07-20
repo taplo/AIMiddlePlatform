@@ -4,8 +4,8 @@ import time
 from collections import OrderedDict
 from typing import Any
 
-from src.monitoring.tracing import trace_async
 from src.models.registry import ModelRegistry, ModelSpec
+from src.monitoring.tracing import trace_async
 from src.pipeline.executor import DAGExecutor
 from src.resilience.circuit_breaker import get_circuit_breaker
 from src.resilience.retry import retry_with_backoff
