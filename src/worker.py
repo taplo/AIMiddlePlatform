@@ -195,7 +195,6 @@ class Worker:
         while True:
             task_id, camera_id, result = await self._db_queue.get()
             try:
-                import json
                 async with AsyncSession(self.db) as session:
                     task = Task(
                         id=task_id,

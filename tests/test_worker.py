@@ -101,10 +101,6 @@ async def test_worker_backends_drain_queue():
 
 @pytest.mark.asyncio
 async def test_worker_concurrent_dispatch():
-    import httpx
-
-    from src.agent.client import QwenVLClient
-
     db = await init_db("sqlite+aiosqlite:///:memory:")
     transport = httpx.MockTransport(lambda req: httpx.Response(200, json={
         "choices": [{"message": {
