@@ -1,3 +1,4 @@
+import asyncio
 import time
 import logging
 
@@ -12,11 +13,9 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/health", tags=["health"])
 
-_start_time = time.time()
+_start = time.monotonic()
 
-
-def _uptime() -> float:
-    return time.time() - _start_time
+_HEALTH_TIMEOUT = 3.0
 
 
 @router.get("")
@@ -27,7 +26,7 @@ async def health(db: AsyncSession = Depends(get_db)) -> dict:
     # Database check
     try:
         before = time.monotonic()
-        await db.execute(text("SELECT 1"))
+        await asyncio.wait_for(db.execute(text("SELECT 1")), timeout=_HEALTH_TIMEOUT)
         db_latency = (time.monotonic() - before) * 1000
         checks["database"] = {"status": "ok", "latency_ms": round(db_latency, 1)}
     except Exception as e:
@@ -40,11 +39,11 @@ async def health(db: AsyncSession = Depends(get_db)) -> dict:
         redis = await get_redis()
         if redis is None:
             raise RuntimeError("Redis client unavailable")
-        await redis.ping()
+        await asyncio.wait_for(redis.ping(), timeout=_HEALTH_TIMEOUT)
         redis_latency = (time.monotonic() - before) * 1000
         checks["redis"] = {"status": "ok", "latency_ms": round(redis_latency, 1)}
     except Exception as e:
-        checks["redis"] = {"status": "degraded" if overall != "error" else "error", "message": str(e)}
+        checks["redis"] = {"status": "degraded", "message": str(e)}
         if overall == "ok":
             overall = "degraded"
 
@@ -53,7 +52,8 @@ async def health(db: AsyncSession = Depends(get_db)) -> dict:
         from src.agent.health import get_health_checker
         checker = get_health_checker()
         checks["llm"] = {"status": "ok", "available": checker.available}
-    except Exception:
+    except Exception as e:
+        logger.exception("LLM health check failed")
         checks["llm"] = {"status": "degraded", "available": False}
         if overall == "ok":
             overall = "degraded"
@@ -64,7 +64,8 @@ async def health(db: AsyncSession = Depends(get_db)) -> dict:
         registry = ModelRegistry()
         models = registry.list_models()
         checks["model_registry"] = {"status": "ok", "models_count": len(models)}
-    except Exception:
+    except Exception as e:
+        logger.exception("Model registry health check failed")
         checks["model_registry"] = {"status": "degraded"}
         if overall == "ok":
             overall = "degraded"
@@ -73,6 +74,6 @@ async def health(db: AsyncSession = Depends(get_db)) -> dict:
         "status": overall,
         "service": "aimiddleplatform",
         "version": "0.1.0",
-        "uptime_seconds": int(_uptime()),
+        "uptime_seconds": int(time.monotonic() - _start),
         "checks": checks,
     }
