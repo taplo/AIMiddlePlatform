@@ -2,10 +2,11 @@
 """Upload and run validation on remote machine. Uses base64 to avoid shell quoting issues."""
 
 import base64
-import sys
 import os
+import sys
+
 sys.path.insert(0, os.path.dirname(__file__))
-from ssh_helper import put_bytes, run, close_all
+from ssh_helper import close_all, put_bytes, run
 
 HOST = "123"
 VENV_PYTHON = "/home/taplo/AIMiddlePlatform/venv/bin/python3"

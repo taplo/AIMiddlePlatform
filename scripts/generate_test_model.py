@@ -15,14 +15,12 @@ from pathlib import Path
 
 try:
     import onnx
-    import numpy as np
 except ImportError:
     onnx = None
 
 
 def make_graph() -> onnx.GraphProto:
-    import onnx
-    from onnx import helper, TensorProto
+    from onnx import TensorProto, helper
 
     X = helper.make_tensor_value_info("images", TensorProto.FLOAT, [1, 3, 640, 640])
     Y = helper.make_tensor_value_info("output0", TensorProto.FLOAT, [1, 84, 1])

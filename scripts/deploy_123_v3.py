@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Full redeploy on 123: git pull, rebuild, compose up, smoke test."""
+"""Redeploy on 123: fresh DB volume, rebuild, compose up, smoke test."""
 import sys
 import time
 
@@ -9,19 +9,14 @@ from ssh_helper import run
 hk = "123"
 
 print("=== 1. git pull ===")
-ec, out, err = run(hk, "cd /home/taplo/AIMiddlePlatform && git pull origin master", 60)
-print(out[:500])
-print(f"exit={ec}")
+run(hk, "cd /home/taplo/AIMiddlePlatform && git pull origin master", 60)
 
-print("\n=== 2. docker build ===")
-ec, out, err = run(hk, "cd /home/taplo/AIMiddlePlatform && docker build -t taplo/aimiddleplatform:latest . 2>&1", 600)
-lines = out.strip().split("\n")
-for line in lines[-5:]:
-    print(line)
-print(f"exit={ec}")
+print("\n=== 2. down + delete volume ===")
+run(hk, "cd /home/taplo/AIMiddlePlatform && docker compose down --remove-orphans -v", 30)
+run(hk, "docker volume rm aimp_data_volume 2>/dev/null; docker volume rm aimpplatform_data_volume 2>/dev/null; docker volume ls | grep data_volume 2>&1", 10)
 
-print("\n=== 3. compose down ===")
-run(hk, "cd /home/taplo/AIMiddlePlatform && docker compose down --remove-orphans", 30)
+print("\n=== 3. docker build ===")
+run(hk, "cd /home/taplo/AIMiddlePlatform && docker build -t taplo/aimiddleplatform:latest . 2>&1 | tail -3", 600)
 
 print("\n=== 4. start redis ===")
 run(hk, "cd /home/taplo/AIMiddlePlatform && docker compose up -d redis", 30)
@@ -29,37 +24,33 @@ time.sleep(5)
 
 print("\n=== 5. start API ===")
 run(hk, "cd /home/taplo/AIMiddlePlatform && docker compose up -d aimp-api", 30)
-print("waiting 20s...")
-time.sleep(20)
+time.sleep(25)
 
-print("\n=== 6. health check ===")
+print("\n=== 6. health ===")
 _, out, _ = run(hk, "curl -s http://localhost:8000/api/v1/health", 10)
 print(out)
 
-print("\n=== 7. start worker + nginx ===")
+print("\n=== 7. worker + nginx ===")
 run(hk, "cd /home/taplo/AIMiddlePlatform && docker compose up -d aimp-worker nginx", 30)
 time.sleep(5)
 
-print("\n=== 8. full smoke test ===")
-_, out, _ = run(hk, "curl -s http://localhost:8000/api/v1/health", 10)
-print("health:", out)
-
+print("\n=== 8. smoke ===")
 _, out, _ = run(hk, 'curl -s -X POST http://localhost:8000/api/v1/auth/login -H "Content-Type: application/json" -d \'{"username":"admin","password":"admin123"}\'', 10)
 print("login:", out[:200])
 
 _, out, _ = run(hk, "curl -s http://localhost:8000/api/v1/models", 10)
-print("models:", out[:300])
+print("models:", out[:400])
+
+_, out, _ = run(hk, "curl -s http://localhost:8000/api/v1/system/stats", 10)
+print("stats:", out[:400])
 
 _, out, _ = run(hk, 'curl -s -X POST http://localhost:8000/api/v1/analyze -H "Content-Type: application/json" -d \'{"camera_id":"test-cam","scene_type":"office","timestamp":"2026-07-23T12:00:00Z","frame":"/9j/4AAQSkZJRg=="}\'', 10)
 print("analyze:", out[:200])
 
-_, out, _ = run(hk, "curl -s http://localhost:8000/api/v1/system/stats", 10)
-print("stats:", out[:300])
-
-print("\n=== 9. compose ps ===")
+print("\n=== 9. ps ===")
 _, out, _ = run(hk, "cd /home/taplo/AIMiddlePlatform && docker compose ps", 10)
 print(out)
 
-print("\n=== 10. API migration logs ===")
-_, out, _ = run(hk, "docker logs aimp-api 2>&1 | head -10", 10)
+print("\n=== 10. startup logs ===")
+_, out, _ = run(hk, "docker logs aimp-api 2>&1 | head -20", 10)
 print(out)

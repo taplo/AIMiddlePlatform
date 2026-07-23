@@ -1,7 +1,6 @@
 from fastapi.testclient import TestClient
 
 from src.api.app import app
-from src.api.routes.admin.notifications import CHANNELS_FILE, DEFAULT_CHANNELS
 
 client = TestClient(app)
 
@@ -13,7 +12,6 @@ def _get_token() -> str:
 
 def test_list_channels_returns_defaults(tmp_path):
     test_file = tmp_path / "channels.json"
-    module = __import__("src.api.routes.admin.notifications", fromlist=[""])
     import src.api.routes.admin.notifications as mod
     original = mod.CHANNELS_FILE
     try:

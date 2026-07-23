@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Diagnose and fix deployment issues on 123."""
 import sys
-import time
+
 sys.path.insert(0, "scripts")
 from ssh_helper import run
 

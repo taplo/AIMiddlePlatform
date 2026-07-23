@@ -2,6 +2,7 @@
 """Deploy latest code on 123, rebuild Docker image, compose up, smoke test."""
 import sys
 import time
+
 sys.path.insert(0, "scripts")
 from ssh_helper import run
 

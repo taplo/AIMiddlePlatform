@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Fix deployment issues on 123 and run full smoke test."""
 import sys
+
 sys.path.insert(0, "scripts")
 from ssh_helper import run
 

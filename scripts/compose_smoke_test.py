@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """Upload and run smoke test against Docker Compose stack on 123."""
-import sys, os
+import os
+import sys
+
 sys.path.insert(0, os.path.dirname(__file__))
-from ssh_helper import put_bytes, run, close_all
+from ssh_helper import close_all, put_bytes, run
 
 REMOTE_SCRIPT = """
 import urllib.request, json

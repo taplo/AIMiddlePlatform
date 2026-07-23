@@ -1,10 +1,7 @@
 #!/usr/bin/env python3
 """SSH helper — run commands and copy files to remote hosts via paramiko."""
 
-import io
-import os
 import sys
-import time
 
 import paramiko
 

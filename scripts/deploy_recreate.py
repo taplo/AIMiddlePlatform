@@ -2,6 +2,7 @@
 """Recreate containers and smoke test."""
 import sys
 import time
+
 sys.path.insert(0, "scripts")
 from ssh_helper import run
 

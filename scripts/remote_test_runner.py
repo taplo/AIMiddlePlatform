@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Run tests on remote machine via SSH. Uploads and executes a test script."""
 
-import sys
 import os
+import sys
+
 sys.path.insert(0, os.path.dirname(__file__))
-from ssh_helper import put_bytes, run, close_all
+from ssh_helper import close_all, put_bytes, run
 
 test_script = r"""
 import sys
