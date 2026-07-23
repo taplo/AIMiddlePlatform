@@ -25,11 +25,11 @@ MODELS = {
         "url": "https://github.com/yakhyo/face-reidentification/releases/download/v0.0.1/w600k_mbf.onnx",
         "desc": "ArcFace MobileFaceNet — face recognition (512-dim embedding)",
     },
+    "fire_smoke_int8.onnx": {
+        "url": "https://huggingface.co/prithivMLmods/Fire-Detection-Engine-ONNX/resolve/main/onnx/model_int8.onnx",
+        "desc": "ViT-base int8 — fire/smoke/normal classifier (83 MB)",
+    },
 }
-
-LFS_SUGGEST = """Models > 100 MB should use Git LFS:
-  fire_smoke_classifier.onnx (327 MB)
-  yolov8s.onnx (43 MB) - borderline, optional"""
 
 dest_dir = os.path.dirname(os.path.abspath(__file__))
 

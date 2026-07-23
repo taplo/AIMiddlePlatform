@@ -4,7 +4,7 @@
 Downloads:
   - yolov8s.onnx  — YOLOv8 small (COCO, 80 classes: person, vehicles, etc.)
   - yolov8n-seg.onnx  — YOLOv8 nano segmentation (COCO)
-  - fire_smoke.onnx  — Fire & smoke detection (if available)
+  - fire_smoke_int8.onnx  — Fire/smoke/normal classifier, int8 quantized (83 MB)
 """
 
 import os
@@ -33,9 +33,8 @@ MODELS = {
 }
 
 FIRE_CANDIDATES = [
-    # HuggingFace direct download (may or may not be accessible)
-    ("fire_smoke.onnx", "https://huggingface.co/prithivMLmods/Fire-Detection-Engine-ONNX/resolve/main/onnx/model.onnx"),
-    # Alternative: ultralytics-based fire model URLs (checking if pre-exported exists)
+    # int8 quantized version (83 MB, < 100 MB GitHub limit)
+    ("fire_smoke_int8.onnx", "https://huggingface.co/prithivMLmods/Fire-Detection-Engine-ONNX/resolve/main/onnx/model_int8.onnx"),
 ]
 
 def download(url, dest, label):
