@@ -315,7 +315,7 @@ def _start_metrics_server(port: int = 8200) -> None:
 async def run_worker(db_url: str = "sqlite+aiosqlite:///data/aimp.db"):
     _start_metrics_server()
     from src.core.database import init_db
-    db = await init_db(db_url)
+    db = await init_db(db_url, create_tables=False)
     worker = Worker(
         db,
         max_concurrent=settings.get("worker.max_concurrent", 10),

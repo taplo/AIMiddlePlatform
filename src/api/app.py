@@ -86,7 +86,7 @@ async def lifespan(app: FastAPI):
 
     from src.core.database import init_db
     db_url = os.getenv("DATABASE_URL") or settings.get("database.url") or "sqlite+aiosqlite:///data/aimp.db"
-    db_engine = await init_db(db_url)
+    db_engine = await init_db(db_url, create_tables=False)
     session_factory = async_sessionmaker(db_engine, expire_on_commit=False)
     init_session_factory(session_factory)
     setup_json_logging()

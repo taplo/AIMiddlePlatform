@@ -18,6 +18,9 @@ def _get_token() -> str:
 @pytest.fixture
 async def _setup_db():
     engine = await init_db("sqlite+aiosqlite://")
+    from src.core.database import Base
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
     factory = async_sessionmaker(engine, expire_on_commit=False)
     prev = api_deps._session_factory
     api_deps.init_session_factory(factory)

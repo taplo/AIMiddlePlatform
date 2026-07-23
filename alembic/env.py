@@ -1,10 +1,9 @@
 import os
 import sys
-from pathlib import Path
 from logging.config import fileConfig
+from pathlib import Path
 
-from sqlalchemy import engine_from_config
-from sqlalchemy import pool
+from sqlalchemy import engine_from_config, pool
 
 from alembic import context
 
@@ -20,7 +19,8 @@ if DATABASE_URL:
     sync_url = DATABASE_URL.replace("+aiosqlite", "").replace("+aiomysql", "")
     config.set_main_option("sqlalchemy.url", sync_url)
 
-from src.core.database import Base
+from src.core.database import Base  # noqa: E402
+
 target_metadata = Base.metadata
 
 # other values from the config, defined by the needs of env.py,

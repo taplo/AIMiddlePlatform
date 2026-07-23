@@ -72,7 +72,7 @@ _engine = None
 _session_factory = None
 
 
-async def init_db(url: str | None = None):
+async def init_db(url: str | None = None, create_tables: bool = True):
     global _engine, _session_factory
     if url is None:
         url = get_db_url_from_config()
@@ -80,6 +80,9 @@ async def init_db(url: str | None = None):
         url = url.replace("mysql://", "mysql+aiomysql://", 1)
     _engine = create_async_engine(url, echo=False)
     _session_factory = async_sessionmaker(_engine, expire_on_commit=False)
+    if create_tables:
+        async with _engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
     return _engine
 
 

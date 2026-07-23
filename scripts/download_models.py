@@ -1,136 +1,84 @@
 #!/usr/bin/env python3
-"""Download all model weights required by the platform.
+"""Download open-source ONNX models for development and testing.
 
-Usage:
-    python -m scripts.download_models              # download all missing models
-    python -m scripts.download_models --check       # check which models are missing
-    python -m scripts.download_models --force       # re-download all models
+Downloads:
+  - yolov8s.onnx  — YOLOv8 small (COCO, 80 classes: person, vehicles, etc.)
+  - yolov8n-seg.onnx  — YOLOv8 nano segmentation (COCO)
+  - fire_smoke.onnx  — Fire & smoke detection (if available)
 """
 
-import argparse
-import sys
+import os
 import urllib.request
 from pathlib import Path
 
-MODEL_DIR = Path(__file__).resolve().parent.parent / "models"
+MODELS_DIR = Path(__file__).resolve().parent.parent / "models"
+PROXY = "http://192.168.3.208:8787"
 
-MODELS: dict[str, dict] = {
-    "yolov8n": {
-        "url": "https://github.com/ultralytics/assets/releases/download/v8.2.0/yolov8n.onnx",
-        "filename": "yolov8n.onnx",
-        "description": "YOLOv8n 目标检测（轻量级）",
+# Proxy handler
+proxy_support = urllib.request.ProxyHandler({"http": PROXY, "https": PROXY})
+opener = urllib.request.build_opener(proxy_support)
+urllib.request.install_opener(opener)
+
+MODELS = {
+    "yolov8s.onnx": {
+        "url": "https://github.com/ultralytics/assets/releases/download/v8.4.0/yolov8s.onnx",
+        "desc": "YOLOv8 small, COCO 80-class detection (person, car, bus, truck, etc.)",
+        "size_mb": 22.5,
     },
-    "yolov8s": {
-        "url": "https://github.com/ultralytics/assets/releases/download/v8.2.0/yolov8s.onnx",
-        "filename": "yolov8s.onnx",
-        "description": "YOLOv8s 目标检测（标准版）",
-    },
-    "object_detection": {
-        "url": "https://github.com/ultralytics/assets/releases/download/v8.2.0/yolov8m.onnx",
-        "filename": "object_detection.onnx",
-        "description": "YOLOv8m 目标检测（精度版，即 object_detection）",
+    "yolov8n-seg.onnx": {
+        "url": "https://github.com/ultralytics/assets/releases/download/v8.4.0/yolov8n-seg.onnx",
+        "desc": "YOLOv8 nano segmentation, COCO 80-class instance segmentation",
+        "size_mb": 6.8,
     },
 }
 
-_MISSING_OK = {
-    "face_recognition",
-    "license_plate",
-    "vehicle_detection",
-    "ocr",
-    "person_reid",
-    "yolo_world",
-}
+FIRE_CANDIDATES = [
+    # HuggingFace direct download (may or may not be accessible)
+    ("fire_smoke.onnx", "https://huggingface.co/prithivMLmods/Fire-Detection-Engine-ONNX/resolve/main/onnx/model.onnx"),
+    # Alternative: ultralytics-based fire model URLs (checking if pre-exported exists)
+]
 
-
-def _progress(block_count: int, block_size: int, total_size: int) -> None:
-    downloaded = block_count * block_size
-    if total_size > 0:
-        pct = min(100, downloaded * 100 // total_size)
-        bar = "#" * (pct // 5) + "-" * (20 - pct // 5)
-        sys.stdout.write(f"\r  [{bar}] {pct}% ({downloaded / 1e6:.1f} / {total_size / 1e6:.1f} MB)")
-    else:
-        sys.stdout.write(f"\r  Downloaded {downloaded / 1e6:.1f} MB")
-    sys.stdout.flush()
-
-
-def check_models() -> dict[str, bool]:
-    results: dict[str, bool] = {}
-    for model_id, info in MODELS.items():
-        path = MODEL_DIR / info["filename"]
-        results[model_id] = path.exists()
-    return results
-
-
-def download_model(model_id: str, force: bool = False) -> bool:
-    info = MODELS.get(model_id)
-    if info is None:
-        print(f"  Unknown model: {model_id}")
-        return False
-
-    dest = MODEL_DIR / info["filename"]
-    if dest.exists() and not force:
-        print(f"  {model_id}: already exists, skipping")
-        return True
-
-    MODEL_DIR.mkdir(parents=True, exist_ok=True)
-    url = info["url"]
-    print(f"  Downloading {model_id} ({info['description']})...")
-    print(f"    from: {url}")
+def download(url, dest, label):
+    print(f"Downloading {label}...")
+    print(f"  URL: {url}")
+    print(f"  -> {dest}")
     try:
-        urllib.request.urlretrieve(url, str(dest), _progress)
-        print()
-        size = dest.stat().st_size
-        print(f"    done: {size / 1e6:.1f} MB")
+        urllib.request.urlretrieve(url, dest)
+        size_mb = os.path.getsize(dest) / (1024 * 1024)
+        print(f"  Done ({size_mb:.1f} MB)")
         return True
     except Exception as e:
-        print(f"    FAILED: {e}")
+        print(f"  FAILED: {e}")
         if dest.exists():
             dest.unlink()
         return False
 
+def main():
+    MODELS_DIR.mkdir(parents=True, exist_ok=True)
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description="Download model weights")
-    parser.add_argument("--check", action="store_true", help="Check which models are missing")
-    parser.add_argument("--force", action="store_true", help="Re-download existing models")
-    args = parser.parse_args()
-
-    if args.check:
-        print("Checking model status:")
-        results = check_models()
-        for model_id, ok in results.items():
-            status = "OK" if ok else "MISSING"
-            print(f"  {model_id:20s} [{status}]")
-        missing = [m for m, ok in results.items() if not ok]
-        if missing:
-            print(f"\n{len(missing)} model(s) missing. Run without --check to download.")
-        else:
-            print("\nAll models present.")
-        return
-
-    print("Downloading models to:", MODEL_DIR)
-    results = check_models()
-    success = 0
-    failed = 0
-    for model_id in MODELS:
-        if results.get(model_id) and not args.force:
-            success += 1
+    # Download standard YOLO models
+    for filename, info in MODELS.items():
+        dest = MODELS_DIR / filename
+        if dest.exists():
+            print(f"Skipping {filename} (already exists, {dest.stat().st_size / 1024 / 1024:.1f} MB)")
             continue
-        if download_model(model_id, force=args.force):
-            success += 1
-        else:
-            failed += 1
+        download(info["url"], dest, f"{filename} ({info['desc']})")
 
-    print(f"\nSummary: {success} OK, {failed} failed")
-    if _MISSING_OK:
-        print("\nNote: The following models require manual download (no public URL):")
-        for m in sorted(_MISSING_OK):
-            print(f"  - {m}")
-        print(f"  Place .onnx files in: {MODEL_DIR}")
+    # Try fire/smoke models
+    for filename, url in FIRE_CANDIDATES:
+        dest = MODELS_DIR / filename
+        if dest.exists():
+            print(f"Skipping {filename} (already exists)")
+            continue
+        success = download(url, dest, filename)
+        if success:
+            break
+        print("  Trying next fire model source...")
 
-    if failed:
-        sys.exit(1)
-
+    # Summary
+    print("\n=== Models summary ===")
+    for f in sorted(MODELS_DIR.glob("*.onnx")):
+        print(f"  {f.name:30s} {f.stat().st_size / 1024 / 1024:.1f} MB")
 
 if __name__ == "__main__":
     main()
