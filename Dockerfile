@@ -30,7 +30,8 @@ COPY pyproject.toml uv.lock* ./
 COPY config/ config/
 COPY src/ src/
 COPY models/ models/
-COPY alembic.ini alembic/ alembic/
+COPY alembic.ini /app/alembic.ini
+COPY alembic/ alembic/
 COPY scripts/docker_entrypoint.sh /docker_entrypoint.sh
 RUN chmod +x /docker_entrypoint.sh
 

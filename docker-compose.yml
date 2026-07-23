@@ -39,7 +39,8 @@ services:
   aimp-worker:
     image: taplo/aimiddleplatform:latest
     container_name: aimp-worker
-    command: python -m src.worker
+    entrypoint: []
+    command: ["python", "-m", "src.worker"]
     env_file:
       - .env
     environment:
