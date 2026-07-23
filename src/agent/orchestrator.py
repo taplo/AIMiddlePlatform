@@ -1,6 +1,9 @@
 import logging
 from typing import Any
 
+import cv2
+import numpy as np
+
 from src.agent.agent import CVAgent
 from src.agent.client import LLMError
 from src.agent.health import get_health_checker
@@ -18,10 +21,12 @@ class AgentOrchestrator:
         fast_path: FastPathHandler,
         agent: CVAgent,
         inference: InferenceOrchestrator,
+        collector=None,
     ):
         self.fast_path = fast_path
         self.agent = agent
         self.inference = inference
+        self._collector = collector
         self._cb = get_circuit_breaker("llm-agent", failure_threshold=3, recovery_timeout=30.0)
 
     @trace_async(span_name="agent.process", attributes={"component": "orchestrator"})
@@ -43,6 +48,19 @@ class AgentOrchestrator:
                 await get_health_checker().check(self.agent.llm)
             except Exception:
                 pass
+            if self._collector and image_data:
+                try:
+                    arr = np.frombuffer(image_data, dtype=np.uint8)
+                    img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+                    if img is not None:
+                        await self._collector.collect_agent_pair(
+                            camera_id=frame_context.get("camera_id", "unknown"),
+                            image=img,
+                            context=frame_context,
+                            result=result,
+                        )
+                except Exception as e:
+                    logger.warning("Failed to collect agent data pair: %s", e)
             return result
         except LLMError as e:
             logger.error("LLM unavailable: %s, degrading to fast path", e)

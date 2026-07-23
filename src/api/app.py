@@ -47,6 +47,7 @@ from src.core.security import (
     is_business_path,
     is_exempt_path,
 )
+from src.data.collector import FrameCollector
 from src.frame_preprocessor.adaptive_sampler import AdaptiveFrameSampler
 from src.frame_preprocessor.processor import FramePreprocessor
 from src.frame_preprocessor.quality_filter import FrameQualityFilter
@@ -64,6 +65,7 @@ from src.monitoring.request_logger import RequestLoggingMiddleware
 from src.monitoring.structured_log import setup_json_logging
 from src.monitoring.trace_store import init_trace_store
 from src.monitoring.tracing import add_trace_store_exporter, init_tracing
+from src.notification.sender import register_webhook_callbacks
 from src.pipeline.dag import NodeType
 from src.pipeline.executor import DAGExecutor
 from src.pipeline.registry import PipelineRegistry
@@ -89,6 +91,7 @@ async def lifespan(app: FastAPI):
     init_session_factory(session_factory)
     setup_json_logging()
     _init_components()
+    register_webhook_callbacks()
     init_log_buffer(maxlen=2000)
     from src.core.redis_client import close_redis, get_redis
     try:
@@ -217,7 +220,8 @@ def _init_components() -> None:
     tool_registry = ToolRegistry(inference)
     build_cv_tools(tool_registry)
     agent = CVAgent(QwenVLClient(), tool_registry)
-    orchestrator = AgentOrchestrator(fast_path, agent, inference)
+    collector = FrameCollector(output_dir=settings.get("data_collection.output_dir", "data/collected/agent_pairs")) if settings.get("data_collection.enabled", False) else None
+    orchestrator = AgentOrchestrator(fast_path, agent, inference, collector=collector)
     from src.api.routes.analyze import analyze_frame
     analyze_frame._orchestrator = orchestrator
     logger.info("Initialized agent orchestrator")
@@ -349,7 +353,7 @@ async def get_metrics() -> Response:
     return Response(content=metrics_endpoint(), media_type="text/plain")
 
 
-frontend_dist = Path(__file__).resolve().parent.parent.parent / "src" / "frontend" / "dist"
+frontend_dist = (Path(__file__).resolve().parent.parent.parent / "frontend" / "dist")
 if frontend_dist.is_dir():
     app.mount("/", StaticFiles(directory=str(frontend_dist), html=True), name="frontend")
 

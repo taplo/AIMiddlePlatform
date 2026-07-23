@@ -32,7 +32,7 @@ const formRef = ref()
 const loading = ref(false)
 const error = ref('')
 
-const form = reactive({ username: 'admin', password: 'admin123' })
+const form = reactive({ username: 'admin', password: '' })
 const rules = {
   username: [{ required: true, message: '请输入用户名' }],
   password: [{ required: true, message: '请输入密码' }],

@@ -13,6 +13,7 @@ from src.agent.orchestrator import AgentOrchestrator
 from src.agent.tools import ToolRegistry, build_cv_tools
 from src.core.config import settings
 from src.core.database import Task
+from src.data.collector import FrameCollector
 from src.ingestion.video_cache import get_cache as get_video_cache
 from src.models.adapters.yolo_world_adapter import YOLOWorldAdapter
 from src.models.adapters.yolov8_adapter import YOLOv8Adapter
@@ -189,7 +190,8 @@ class Worker:
         tool_registry = ToolRegistry(_inference)
         build_cv_tools(tool_registry)
         agent = CVAgent(QwenVLClient(), tool_registry)
-        self.orchestrator = AgentOrchestrator(self.fast_path, agent, _inference)
+        collector = FrameCollector(output_dir=settings.get("data_collection.output_dir", "data/collected/agent_pairs")) if settings.get("data_collection.enabled", False) else None
+        self.orchestrator = AgentOrchestrator(self.fast_path, agent, _inference, collector=collector)
 
     async def _db_worker(self) -> None:
         while True:

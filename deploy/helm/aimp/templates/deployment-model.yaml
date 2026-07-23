@@ -1,0 +1,159 @@
+{{- range $name, $model := .Values.models }}
+{{- if $model.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "aimp.fullname" $ }}-model-{{ $name }}
+  labels:
+    {{- include "aimp.labels" $ | nindent 4 }}
+    component: model
+    model: {{ $name }}
+spec:
+  replicas: {{ $model.replicaCount | default 1 }}
+  selector:
+    matchLabels:
+      {{- include "aimp.selectorLabels" $ | nindent 6 }}
+      component: model
+      model: {{ $name }}
+  template:
+    metadata:
+      {{- with $.Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "aimp.labels" $ | nindent 8 }}
+        component: model
+        model: {{ $name }}
+    spec:
+      {{- with $.Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "aimp.serviceAccountName" $ }}
+      securityContext:
+        {{- toYaml $.Values.podSecurityContext | nindent 8 }}
+      {{- if $model.gpu }}
+      nodeSelector:
+        {{- toYaml $model.gpu.nodeSelector | nindent 8 }}
+      {{- else if $.Values.gpu.enabled }}
+      nodeSelector:
+        {{- toYaml $.Values.gpu.nodeSelector | nindent 8 }}
+      {{- else }}
+      {{- with $model.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- end }}
+      {{- with $model.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $model.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: model-{{ $name }}
+          image: "{{ $.Values.image.repository }}:{{ $.Values.image.tag }}"
+          imagePullPolicy: {{ $.Values.image.pullPolicy }}
+          command:
+            - python
+            - -m
+            - src.models.serve_model
+            - --model-id
+            - {{ $name }}
+          envFrom:
+            - configMapRef:
+                name: {{ include "aimp.fullname" $ }}-config
+          env:
+            - name: MODEL_ID
+              value: {{ $name }}
+            - name: INFERENCE_PORT
+              value: "8501"
+          ports:
+            - name: inference
+              containerPort: 8501
+              protocol: TCP
+          resources:
+            {{- toYaml $model.resources | nindent 12 }}
+          {{- if $model.gpu }}
+            {{- toYaml $model.gpu.resources | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            - name: models
+              mountPath: /app/models
+              subPath: models
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: inference
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            timeoutSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: inference
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+      volumes:
+        - name: models
+          persistentVolumeClaim:
+            claimName: {{ include "aimp.fullname" $ }}-models
+            readOnly: true
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "aimp.fullname" $ }}-model-{{ $name }}
+  labels:
+    {{- include "aimp.labels" $ | nindent 4 }}
+    component: model
+    model: {{ $name }}
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8501
+      targetPort: inference
+      protocol: TCP
+      name: inference
+  selector:
+    {{- include "aimp.selectorLabels" $ | nindent 4 }}
+    component: model
+    model: {{ $name }}
+---
+{{- if $model.hpa.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "aimp.fullname" $ }}-model-{{ $name }}
+  labels:
+    {{- include "aimp.labels" $ | nindent 4 }}
+    component: model
+    model: {{ $name }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "aimp.fullname" $ }}-model-{{ $name }}
+  minReplicas: {{ $model.hpa.minReplicas | default 1 }}
+  maxReplicas: {{ $model.hpa.maxReplicas | default 5 }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ $model.hpa.targetCPUUtilizationPercentage | default 70 }}
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: {{ $model.hpa.targetMemoryUtilizationPercentage | default 80 }}
+{{- end }}
+{{- end }}
+{{- end }}

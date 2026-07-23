@@ -23,6 +23,8 @@ _ENV_KEY_MAP: dict[str, str] = {
     "worker.max_concurrent": "WORKER_MAX_CONCURRENT",
     "worker.db_queue_size": "WORKER_DB_QUEUE_SIZE",
     "worker.rule_queue_size": "WORKER_RULE_QUEUE_SIZE",
+    "data_collection.enabled": "DATA_COLLECTION_ENABLED",
+    "data_collection.output_dir": "DATA_COLLECTION_OUTPUT_DIR",
 }
 
 

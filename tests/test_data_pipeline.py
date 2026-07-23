@@ -85,9 +85,10 @@ class TestFrameCleaner:
     def test_clean_all_pass(self, sample_frames):
         cleaner = FrameCleaner()
         cleaned, report = cleaner.clean(sample_frames)
-        assert len(cleaned) == 5
         assert report.total == 5
-        assert report.passed == 5
+        assert report.removed_near_duplicate == 4
+        assert len(cleaned) == 1
+        assert report.passed == 1
 
     def test_clean_removes_duplicates(self):
         img = _make_test_image()
@@ -139,6 +140,49 @@ class TestYOLOExporter:
             assert path.exists()
             names_file = Path(tmp) / "test_dataset.names"
             assert names_file.exists()
+
+
+def _make_distinct_image(seed: int) -> np.ndarray:
+    """Create a deterministic image that is phash-distinct per seed."""
+    rng = np.random.default_rng(seed)
+    img = rng.integers(30, 240, (64, 64, 3), dtype=np.uint8)
+    if seed % 3 == 0:
+        cv2.circle(img, (32, 32), 20, (0, 0, 255), -1)
+    elif seed % 3 == 1:
+        cv2.rectangle(img, (10, 10), (54, 54), (0, 255, 0), -1)
+    else:
+        cv2.line(img, (0, 0), (63, 63), (255, 0, 0), 5)
+    return img
+
+
+class TestAgentPairCleaner:
+    def test_clean_pairs_all_distinct(self):
+        from src.data.cleaner import AgentPairCleaner
+        imgs = [_make_distinct_image(i) for i in range(3)]
+        ctxs = [{"camera": "cam1"}, {"camera": "cam2"}, {"camera": "cam3"}]
+        results = [
+            {"scene_type": "parking_lot", "summary": "cars"},
+            {"scene_type": "street", "summary": "people"},
+            {"scene_type": "indoor", "summary": "office"},
+        ]
+        cleaner = AgentPairCleaner()
+        out_imgs, out_ctxs, out_results, report = cleaner.clean_pairs(imgs, ctxs, results)
+        assert report.passed == 3, f"Expected 3, got {report}"
+        assert len(out_imgs) == 3
+
+    def test_clean_pairs_removes_duplicate_results(self):
+        from src.data.cleaner import AgentPairCleaner
+        imgs = [_make_distinct_image(i % 3 + 10) for i in range(3)]
+        ctxs = [{"camera": "cam1"}] * 3
+        results = [
+            {"scene_type": "parking_lot", "summary": "same"},
+            {"scene_type": "parking_lot", "summary": "same"},
+            {"scene_type": "parking_lot", "summary": "different"},
+        ]
+        cleaner = AgentPairCleaner()
+        out_imgs, out_ctxs, out_results, report = cleaner.clean_pairs(imgs, ctxs, results)
+        assert report.removed_agent_duplicate == 1, f"Expected 1 agent dup, got {report}"
+        assert len(out_results) == 2
 
 
 class TestDataPipeline:

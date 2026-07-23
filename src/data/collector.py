@@ -26,6 +26,23 @@ class FrameCollector:
         self._output = Path(output_dir)
         self._output.mkdir(parents=True, exist_ok=True)
 
+    async def collect_agent_pair(
+        self,
+        camera_id: str,
+        image: np.ndarray,
+        context: dict,
+        result: dict,
+    ) -> Path | None:
+        frame = CollectedFrame(
+            camera_id=camera_id,
+            timestamp=time.time(),
+            image=image,
+            metadata={"source": "agent_path", "context": context, "result": result},
+            source="agent_path",
+        )
+        saved = await self.save_frames([frame], subdir="agent_pairs")
+        return saved[0] if saved else None
+
     async def collect_from_directory(
         self,
         source_dir: str | Path,

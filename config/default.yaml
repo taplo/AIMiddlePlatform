@@ -50,3 +50,7 @@ worker:
   max_concurrent: 10
   db_queue_size: 200
   rule_queue_size: 200
+
+data_collection:
+  enabled: false
+  output_dir: data/collected/agent_pairs

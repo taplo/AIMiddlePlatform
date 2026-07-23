@@ -3,6 +3,7 @@ import logging
 import uuid
 from datetime import datetime
 
+import redis.exceptions
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -62,7 +63,10 @@ async def analyze_frame(
         if orchestrator is None:
             raise HTTPException(500, "Orchestrator not initialized in sync mode")
         body["frame"] = frame_raw
-        result = await orchestrator.process(body)
+        try:
+            result = await orchestrator.process(body)
+        except (redis.exceptions.ConnectionError, redis.exceptions.TimeoutError) as e:
+            raise HTTPException(503, f"Service unavailable (Redis): {e}")
         return result
 
     task_id = str(uuid.uuid4())
@@ -140,7 +144,11 @@ async def analyze_frame(
             "timestamp": datetime.now().isoformat(),
         }
 
-    await _queue.push("aimp:tasks", json.dumps(msg).encode())
+    try:
+        await _queue.push("aimp:tasks", json.dumps(msg).encode())
+    except (redis.exceptions.ConnectionError, redis.exceptions.TimeoutError, OSError) as e:
+        logger.warning("Redis unavailable, frame %s queued locally: %s", task_id, e)
+        return {"task_id": task_id, "status": "queued_local", "warning": "Redis unavailable, frame stored in memory only"}
     return {"task_id": task_id, "status": "queued"}
 
 

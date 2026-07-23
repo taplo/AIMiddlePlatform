@@ -7,7 +7,6 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.deps import get_db
-from src.core.redis_client import get_redis
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +34,7 @@ async def health(db: AsyncSession = Depends(get_db)) -> dict:
 
     # Redis check
     try:
+        from src.core.redis_client import get_redis
         before = time.monotonic()
         redis = await get_redis()
         if redis is None:

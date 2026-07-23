@@ -49,7 +49,7 @@ def set_default_attributes(attrs: dict[str, Any]) -> None:
 def get_tracer() -> trace.Tracer:
     global _tracer
     if _tracer is None:
-        _tracer = init_tracing()
+        init_tracing()
     return _tracer
 
 

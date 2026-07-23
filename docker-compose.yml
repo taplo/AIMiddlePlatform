@@ -1,4 +1,5 @@
 services:
+  # ── API Server ──────────────────────────────────────────────
   aimp-api:
     build:
       context: .
@@ -6,67 +7,94 @@ services:
     image: taplo/aimiddleplatform:latest
     container_name: aimp-api
     ports:
-      - "8000:8000"
+      - "${API_PORT:-8000}:8000"
+    env_file:
+      - .env
     environment:
-      - APP_ENV=production
-      - QUEUE_REDIS_URL=redis://redis:6379/0
-      - DATABASE_URL=${DATABASE_URL:-sqlite+aiosqlite:///data/aimp.db}
-      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-change-me-in-production}
+      APP_ENV: ${APP_ENV:-production}
+      QUEUE_REDIS_URL: ${QUEUE_REDIS_URL:-redis://redis:6379/0}
+      DATABASE_URL: ${DATABASE_URL:-sqlite+aiosqlite:///data/aimp.db}
+      S3_ENDPOINT: ${S3_ENDPOINT:-minio:9000}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-minioadmin}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-minioadmin}
+      S3_BUCKET: ${S3_BUCKET:-aimp-results}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-change-me-in-production}
     volumes:
-      - ./data:/app/data
+      - data_volume:/app/data
+      - models_volume:/app/models
     depends_on:
       redis:
-        condition: service_started
+        condition: service_healthy
     restart: unless-stopped
+    networks:
+      - aimp-network
     healthcheck:
       test: ["CMD", "python3", "-c", "import urllib.request; r=urllib.request.urlopen('http://localhost:8000/api/v1/health'); assert r.status==200"]
       interval: 15s
-      timeout: 5s
-      retries: 3
+      timeout: 10s
+      retries: 5
+      start_period: 20s
 
+  # ── Background Worker ───────────────────────────────────────
   aimp-worker:
     image: taplo/aimiddleplatform:latest
     container_name: aimp-worker
     command: python -m src.worker
+    env_file:
+      - .env
+    environment:
+      APP_ENV: ${APP_ENV:-production}
+      QUEUE_REDIS_URL: ${QUEUE_REDIS_URL:-redis://redis:6379/0}
+      DATABASE_URL: ${DATABASE_URL:-sqlite+aiosqlite:///data/aimp.db}
+      S3_ENDPOINT: ${S3_ENDPOINT:-minio:9000}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-minioadmin}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-minioadmin}
+      S3_BUCKET: ${S3_BUCKET:-aimp-results}
+    volumes:
+      - data_volume:/app/data
+      - models_volume:/app/models
     depends_on:
       redis:
-        condition: service_started
-    environment:
-      - APP_ENV=production
-      - QUEUE_REDIS_URL=redis://redis:6379/0
-      - DATABASE_URL=${DATABASE_URL:-sqlite+aiosqlite:///data/aimp.db}
-      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-change-me-in-production}
-    volumes:
-      - ./data:/app/data
+        condition: service_healthy
     restart: unless-stopped
+    networks:
+      - aimp-network
 
+  # ── Redis (message queue + cache) ───────────────────────────
   redis:
     image: redis:7-alpine
     container_name: aimp-redis
     ports:
-      - "6379:6379"
+      - "${REDIS_PORT:-6379}:6379"
     volumes:
       - redis_data:/data
     restart: unless-stopped
+    networks:
+      - aimp-network
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 3s
       retries: 3
 
+  # ── Nginx (reverse proxy + frontend) ────────────────────────
   nginx:
     image: nginx:alpine
     container_name: aimp-nginx
     ports:
-      - "80:80"
+      - "${NGINX_PORT:-80}:80"
     volumes:
-      - ./frontend/dist:/usr/share/nginx/html:ro
       - ./deploy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:
-      - aimp-api
+      aimp-api:
+        condition: service_started
     restart: unless-stopped
+    networks:
+      - aimp-network
 
+  # ── MySQL (production database) ─────────────────────────────
   mysql:
+    profiles: [full]
     image: mysql:8.0
     container_name: aimp-mysql
     environment:
@@ -75,16 +103,50 @@ services:
       MYSQL_USER: aimp
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:-aimp_pass}
     ports:
-      - "3306:3306"
+      - "${MYSQL_PORT:-3306}:3306"
     volumes:
       - mysql_data:/var/lib/mysql
+    restart: unless-stopped
+    networks:
+      - aimp-network
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       interval: 10s
       timeout: 5s
       retries: 5
+
+  # ── MinIO (S3-compatible object storage) ────────────────────
+  minio:
+    profiles: [full]
+    image: minio/minio:latest
+    container_name: aimp-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    ports:
+      - "${MINIO_API_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - minio_data:/data
     restart: unless-stopped
+    networks:
+      - aimp-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q http://localhost:9000/minio/health/live -O /dev/null || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
 volumes:
   redis_data:
   mysql_data:
+  minio_data:
+  data_volume:
+  models_volume:
+
+networks:
+  aimp-network:
+    name: aimp-network
+    driver: bridge
