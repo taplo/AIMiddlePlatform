@@ -1,1 +1,0 @@
-import{A as n,g as a}from"./index-DWRPYwEa.js";const u=n("auth",()=>{const e=a(localStorage.getItem("access_token")||""),t=a("");function s(o){e.value=o,localStorage.setItem("access_token",o)}function c(){e.value="",t.value="",localStorage.removeItem("access_token")}return{token:e,user:t,setToken:s,clear:c}});export{u};

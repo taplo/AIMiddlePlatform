@@ -8,7 +8,21 @@ export interface DashboardStats {
   requests_total: number
 }
 
+export interface StatsHistory {
+  timestamps: string[]
+  qps: number[]
+  p50: number[]
+  p95: number[]
+  p99: number[]
+  error_rate: number[]
+}
+
 export async function fetchStats() {
   const res = await client.get<DashboardStats>('/api/v1/system/stats')
+  return res.data
+}
+
+export async function fetchStatsHistory() {
+  const res = await client.get<StatsHistory>('/api/v1/system/stats/history')
   return res.data
 }

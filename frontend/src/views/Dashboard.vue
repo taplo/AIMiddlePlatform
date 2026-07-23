@@ -16,22 +16,19 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useDashboardStore } from '@/stores/dashboard'
 import StatCard from '@/components/StatCard.vue'
 import LineChart from '@/components/LineChart.vue'
 
 const dash = useDashboardStore()
-const qpsHistory = ref<number[]>([])
-const latencyHistory = ref<number[]>([])
 
 onMounted(async () => {
-  await dash.load()
-  if (dash.stats) {
-    qpsHistory.value = Array(60).fill(0).map(() => Math.round(dash.stats!.qps * (0.5 + Math.random())))
-    latencyHistory.value = Array(60).fill(0).map(() => Math.round(dash.stats!.latency.avg_ms * (0.5 + Math.random())))
-  }
+  await Promise.all([dash.load(), dash.loadHistory()])
 })
+
+const qpsHistory = computed(() => dash.history?.qps ?? [])
+const latencyHistory = computed(() => dash.history?.p50 ?? [])
 </script>
 
 <style scoped>

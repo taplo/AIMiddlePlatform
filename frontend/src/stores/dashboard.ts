@@ -1,9 +1,10 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { fetchStats, type DashboardStats } from '@/api/dashboard'
+import { fetchStats, fetchStatsHistory, type DashboardStats, type StatsHistory } from '@/api/dashboard'
 
 export const useDashboardStore = defineStore('dashboard', () => {
   const stats = ref<DashboardStats | null>(null)
+  const history = ref<StatsHistory | null>(null)
   const loading = ref(false)
 
   async function load() {
@@ -15,5 +16,13 @@ export const useDashboardStore = defineStore('dashboard', () => {
     }
   }
 
-  return { stats, loading, load }
+  async function loadHistory() {
+    try {
+      history.value = await fetchStatsHistory()
+    } catch {
+      history.value = null
+    }
+  }
+
+  return { stats, history, loading, load, loadHistory }
 })
