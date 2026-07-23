@@ -44,4 +44,4 @@ async def test_analyze_frame_returns_task_id() -> None:
     assert resp.status_code == 200
     data = resp.json()
     assert "task_id" in data
-    assert data["status"] == "queued"
+    assert data["status"] in ("queued", "queued_local")

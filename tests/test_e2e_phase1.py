@@ -166,6 +166,7 @@ class TestAnalyzeEndpointE2E:
         data = resp.json()
         assert "task_id" in data
         assert isinstance(data["task_id"], str)
+        assert data["status"] in ("queued", "queued_local")
 
     def test_analyze_rejects_large_frame(self):
         client = TestClient(app)

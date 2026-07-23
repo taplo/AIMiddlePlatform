@@ -3,6 +3,7 @@ import logging
 from collections.abc import AsyncIterator
 
 import redis.asyncio as aioredis
+from redis.exceptions import ConnectionError as RedisConnectionError
 
 from src.core.config import settings
 from src.core.redis_client import get_redis
@@ -21,6 +22,8 @@ class RedisStreamQueue(FrameQueue):
 
     async def push(self, camera_id: str, data: bytes) -> None:
         r = await self._ensure_redis()
+        if r is None:
+            raise RedisConnectionError("Redis unavailable")
         stream_key = f"frames:{camera_id}"
         await r.xadd(stream_key, {"data": data}, maxlen=10000)
 
