@@ -33,7 +33,7 @@ async def test_adapter_initialization() -> None:
 @pytest.mark.asyncio
 async def test_yolov8_adapter_with_image() -> None:
     adapter = YOLOv8Adapter(model_dir="models")
-    spec = ModelSpec(model_id="object_detection", name="YOLOv8n", version="1.0.0", backend="onnx")
+    spec = ModelSpec(model_id="yolov8n", name="YOLOv8n", version="1.0.0", backend="onnx")
     img = np.random.randint(0, 255, (480, 640, 3), dtype=np.uint8)
 
     result = await adapter.predict(spec, {"image": img})

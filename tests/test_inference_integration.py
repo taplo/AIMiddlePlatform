@@ -9,7 +9,7 @@ from src.models.adapters.yolov8_adapter import YOLOv8Adapter
 from src.models.registry import ModelSpec
 
 _MODEL_DIR = Path(__file__).resolve().parent.parent / "models"
-_PROD_MODEL = _MODEL_DIR / "object_detection.onnx"
+_PROD_MODEL = _MODEL_DIR / "yolov8n.onnx"
 _TEST_MODEL = _MODEL_DIR / "test_model.onnx"
 
 
@@ -31,7 +31,7 @@ async def test_yolov8_inference():
     cv2.circle(img, (400, 200), 50, (0, 0, 255), 2)
 
     adapter = YOLOv8Adapter(model_dir=str(_MODEL_DIR))
-    model_id = "object_detection" if _PROD_MODEL.exists() else "test_model"
+    model_id = "yolov8n" if _PROD_MODEL.exists() else "test_model"
     spec = ModelSpec(model_id=model_id, name="YOLOv8-compact", version="1.0.0", backend="onnx")
     result = await adapter.predict(spec, {"image": img})
 
