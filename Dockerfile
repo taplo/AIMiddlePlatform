@@ -30,6 +30,9 @@ COPY pyproject.toml uv.lock* ./
 COPY config/ config/
 COPY src/ src/
 COPY models/ models/
+COPY alembic.ini alembic/ alembic/
+COPY scripts/docker_entrypoint.sh /docker_entrypoint.sh
+RUN chmod +x /docker_entrypoint.sh
 
 # Sync all dependencies (caches wheels across builds for slow networks)
 RUN --mount=type=cache,target=/root/.cache/uv \
@@ -49,4 +52,4 @@ EXPOSE 8000
 HEALTHCHECK --interval=15s --timeout=5s --retries=3 \
     CMD python3 -c "import urllib.request; r=urllib.request.urlopen('http://localhost:8000/api/v1/health'); assert r.status==200"
 
-CMD ["uvicorn", "src.api.app:app", "--host", "0.0.0.0", "--port", "8000"]
+ENTRYPOINT ["/docker_entrypoint.sh"]
