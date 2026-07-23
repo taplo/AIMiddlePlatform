@@ -79,8 +79,6 @@ async def init_db(url: str | None = None):
     if is_mysql(url) and not url.startswith("mysql+aiomysql"):
         url = url.replace("mysql://", "mysql+aiomysql://", 1)
     _engine = create_async_engine(url, echo=False)
-    async with _engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
     _session_factory = async_sessionmaker(_engine, expire_on_commit=False)
     return _engine
 
