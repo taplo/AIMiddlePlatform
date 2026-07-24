@@ -30,7 +30,13 @@
         </el-form-item>
 
         <el-divider content-position="left">置信度阈值</el-divider>
-        <el-form-item v-for="(val, key) in form.thresholds" :key="key" :label="key">
+        <el-form-item v-for="(val, key) in form.thresholds" :key="key">
+          <template #label>
+            <span>{{ key }}</span>
+            <el-tooltip :content="thresholdHints[key] || ''" placement="top" :offset="10">
+              <el-icon style="margin-left:4px;color:var(--el-color-info);cursor:pointer"><WarningFilled /></el-icon>
+            </el-tooltip>
+          </template>
           <el-slider v-model="form.thresholds[key]" :min="0" :max="1" :step="0.05" style="width:300px" />
           <span style="margin-left:12px;min-width:40px">{{ val }}</span>
         </el-form-item>
@@ -62,6 +68,7 @@
 <script setup lang="ts">
 import { reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
+import { WarningFilled } from '@element-plus/icons-vue'
 import { useAgentStore } from '@/stores/agent'
 
 const store = useAgentStore()
@@ -72,6 +79,13 @@ const form = reactive({
   routing_rules: [] as { scene_id: string; pipeline: string }[],
 })
 const newRule = reactive({ scene_id: '', pipeline: '' })
+
+const thresholdHints: Record<string, string> = {
+  parking_lot: '停车场场景下，检测结果置信度低于此值将交由 LLM Agent 二次确认',
+  entrance: '出入口场景下，检测结果置信度低于此值将交由 LLM Agent 二次确认',
+  street: '街道场景下，检测结果置信度低于此值将交由 LLM Agent 二次确认',
+  indoor: '室内场景下，检测结果置信度低于此值将交由 LLM Agent 二次确认',
+}
 
 const showApiKey = computed(() => form.llm.provider !== 'ollama')
 
