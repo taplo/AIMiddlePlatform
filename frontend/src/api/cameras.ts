@@ -11,15 +11,15 @@ export interface Camera {
 }
 
 export async function fetchCameras() {
-  const res = await client.get<Camera[]>('/v1/streams')
+  const res = await client.get<Camera[]>('/api/v1/streams')
   return res.data
 }
 
 export async function createCamera(data: { stream_url: string; protocol: string; fps: number }) {
-  const res = await client.post<Camera>('/v1/analyze/stream', data)
+  const res = await client.post<Camera>('/api/v1/analyze/stream', data)
   return res.data
 }
 
 export async function deleteCamera(taskId: string) {
-  await client.delete(`/v1/tasks/${taskId}`)
+  await client.delete(`/api/v1/streams/${taskId}`)
 }

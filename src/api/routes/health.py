@@ -60,10 +60,10 @@ async def health(db: AsyncSession = Depends(get_db)) -> dict:
 
     # Model registry check
     try:
-        from src.models.registry import ModelRegistry
-        registry = ModelRegistry()
-        models = registry.list_models()
-        checks["model_registry"] = {"status": "ok", "models_count": len(models)}
+        import src.api.routes.models as models_route
+        models = models_route._registry
+        count = len(models.list_models()) if models else 0
+        checks["model_registry"] = {"status": "ok", "models_count": count}
     except Exception:
         logger.exception("Model registry health check failed")
         checks["model_registry"] = {"status": "degraded"}

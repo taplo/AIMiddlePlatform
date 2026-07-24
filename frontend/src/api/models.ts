@@ -19,17 +19,17 @@ export interface ModelStats {
 }
 
 export async function fetchModels() {
-  const res = await client.get<ModelSpec[]>('/v1/models/')
+  const res = await client.get<ModelSpec[]>('/api/v1/models/')
   return res.data
 }
 
 export async function fetchActiveModels() {
-  const res = await client.get<ModelSpec[]>('/v1/models/active')
+  const res = await client.get<ModelSpec[]>('/api/v1/models/active')
   return res.data
 }
 
 export async function updateModelStatus(modelId: string, status: string) {
-  const res = await client.post(`/v1/models/${modelId}/status`, { version: '', status })
+  const res = await client.post(`/api/v1/models/${modelId}/status`, { version: '', status })
   return res.data
 }
 
