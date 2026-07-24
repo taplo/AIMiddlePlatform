@@ -28,26 +28,26 @@ export interface PipelineSummary {
 }
 
 export async function fetchPipelines() {
-  const res = await client.get<{ pipelines: PipelineSummary[] }>('/api/v1/admin/pipelines')
+  const res = await client.get<{ pipelines: PipelineSummary[] }>('/api/v1/pipelines')
   return res.data.pipelines
 }
 
 export async function fetchPipelineDAG(name: string) {
-  const res = await client.get<PipelineDAG>(`/api/v1/admin/pipelines/${name}`)
+  const res = await client.get<PipelineDAG>(`/api/v1/pipelines/${name}`)
   return res.data
 }
 
 export async function createPipeline(name: string, dag: PipelineCreateBody) {
-  const res = await client.post('/api/v1/admin/pipelines', { name, ...dag })
+  const res = await client.post('/api/v1/pipelines', { name, ...dag })
   return res.data
 }
 
 export async function updatePipeline(name: string, dag: PipelineCreateBody) {
-  const res = await client.put(`/api/v1/admin/pipelines/${name}`, dag)
+  const res = await client.put(`/api/v1/pipelines/${name}`, dag)
   return res.data
 }
 
 export async function deletePipeline(name: string) {
-  const res = await client.delete(`/api/v1/admin/pipelines/${name}`)
+  const res = await client.delete(`/api/v1/pipelines/${name}`)
   return res.data
 }

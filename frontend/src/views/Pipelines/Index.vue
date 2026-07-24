@@ -87,10 +87,7 @@
         <template v-if="configNode.node_type === 'model_inference'">
           <el-form-item label="模型">
             <el-select v-model="configNode.config.model" size="small" placeholder="选择模型" style="width:100%">
-              <el-option label="目标检测" value="object_detection" />
-              <el-option label="人脸检测" value="face_detection" />
-              <el-option label="OCR" value="ocr" />
-              <el-option label="车辆检测" value="vehicle_detection" />
+              <el-option v-for="m in modelStore.list" :key="m.model_id" :label="m.name || m.model_id" :value="m.model_id" />
             </el-select>
           </el-form-item>
         </template>
@@ -120,9 +117,11 @@ import { Controls } from '@vue-flow/controls'
 import '@vue-flow/core/dist/style.css'
 import '@vue-flow/core/dist/theme-default.css'
 import '@vue-flow/controls/dist/style.css'
+import { useModelStore } from '@/stores/models'
 import { usePipelineStore } from '@/stores/pipelines'
 import type { PipelineNode } from '@/api/pipelines'
 
+const modelStore = useModelStore()
 const store = usePipelineStore()
 const showEditor = ref(false)
 const showConfig = ref(false)
@@ -165,6 +164,7 @@ function openNew() {
   editorDag.value = { name: '', nodes: [], entry_nodes: [], output_node: '' }
   flowNodes.value = []
   flowEdges.value = []
+  modelStore.load()
   showEditor.value = true
 }
 
@@ -183,6 +183,7 @@ async function openEditor(name: string) {
   nodeIdCounter.value = nodes.length
   flowNodes.value = dagToFlow(nodes)
   flowEdges.value = dagToEdges(nodes)
+  modelStore.load()
   showEditor.value = true
 }
 
@@ -282,18 +283,12 @@ function saveConfig() {
 }
 
 function collectEdges(): PipelineNode[] {
-  const nodes: PipelineNode[] = []
-  for (const fn of flowNodes.value) {
-    const existing = editorDag.value?.nodes.find(n => n.node_id === fn.id)
-    const deps = flowEdges.value.filter(e => e.target === fn.id).map(e => e.source)
-    nodes.push({
-      node_id: fn.id,
-      node_type: fn.data.type,
-      config: existing?.config || {},
-      depends_on: deps,
-    })
-  }
-  return nodes
+  return editorDag.value!.nodes.map(n => ({
+    node_id: n.node_id,
+    node_type: n.node_type,
+    config: n.config,
+    depends_on: n.depends_on,
+  }))
 }
 
 async function saveEditor() {
@@ -303,14 +298,18 @@ async function saveEditor() {
   const nodes = collectEdges()
   const body = { nodes, entry_nodes: editorDag.value.entry_nodes, output_node: editorDag.value.output_node }
 
-  if (editingName.value) {
-    await store.update(editingName.value, body)
-    ElMessage.success('流水线已更新')
-  } else {
-    await store.create(name, body)
-    ElMessage.success('流水线已创建')
+  try {
+    if (editingName.value) {
+      await store.update(editingName.value, body)
+      ElMessage.success('流水线已更新')
+    } else {
+      await store.create(name, body)
+      ElMessage.success('流水线已创建')
+    }
+    showEditor.value = false
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.detail || e?.message || '保存流水线失败')
   }
-  showEditor.value = false
 }
 </script>
 
