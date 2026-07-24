@@ -73,7 +73,7 @@ async def health(db: AsyncSession = Depends(get_db)) -> dict:
     return {
         "status": overall,
         "service": "aimiddleplatform",
-        "version": "0.1.0",
+        "version": "0.2.0",
         "uptime_seconds": int(time.monotonic() - _start),
         "checks": checks,
     }
