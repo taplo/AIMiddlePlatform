@@ -37,3 +37,15 @@ export async function fetchModelStats(modelId: string) {
   const res = await client.get<ModelStats>(`/api/v1/models/${modelId}/stats`)
   return res.data
 }
+
+export async function uploadModel(formData: FormData) {
+  const res = await client.post('/api/v1/models/upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+  return res.data
+}
+
+export async function deleteModel(modelId: string) {
+  const res = await client.delete(`/api/v1/models/${modelId}`)
+  return res.data
+}

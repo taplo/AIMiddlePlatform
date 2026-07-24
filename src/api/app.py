@@ -195,7 +195,7 @@ def _init_components() -> None:
     global _inference_orchestrator
     model_registry = ModelRegistry()
     register_default_models(model_registry)
-    models_route.init_registry(model_registry)
+    models_route.init_registry(model_registry, models_dir="models")
     logger.info("Initialized model registry with %d models", len(model_registry.list_models()))
 
     inference = InferenceOrchestrator(model_registry)

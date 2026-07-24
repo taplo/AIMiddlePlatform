@@ -59,5 +59,15 @@ class ModelRegistry:
             model.status = status
             model.updated_at = datetime.now()
 
+    def remove(self, model_id: str, version: str | None = None) -> bool:
+        if version:
+            versions = self._models.get(model_id, [])
+            orig = len(versions)
+            self._models[model_id] = [v for v in versions if v.version != version]
+            if not self._models[model_id]:
+                del self._models[model_id]
+            return len(self._models.get(model_id, [])) < orig
+        return self._models.pop(model_id, None) is not None
+
     def get_active_models(self) -> list[ModelSpec]:
         return [m for m in self.list_models() if m.status == ModelStatus.ONLINE]
