@@ -5,16 +5,23 @@
       <el-form v-if="store.config" label-width="140px" style="max-width:800px">
         <el-divider content-position="left">LLM 端点</el-divider>
         <el-form-item label="Provider">
-          <el-select v-model="form.llm.provider" style="width:200px">
-            <el-option label="Qwen-VL" value="Qwen" />
-            <el-option label="DeepSeek-VL" value="DeepSeek" />
+          <el-select v-model="form.llm.provider" style="width:320px" @change="onProviderChange">
+            <el-option
+              v-for="p in store.providers"
+              :key="p.id"
+              :label="p.name"
+              :value="p.id"
+            />
           </el-select>
         </el-form-item>
         <el-form-item label="URL">
-          <el-input v-model="form.llm.url" placeholder="http://localhost:8000/v1/chat" />
+          <el-input v-model="form.llm.url" :placeholder="defaultUrl" />
         </el-form-item>
-        <el-form-item label="API Key">
+        <el-form-item v-if="showApiKey" label="API Key">
           <el-input v-model="form.llm.api_key" type="password" show-password />
+        </el-form-item>
+        <el-form-item label="模型名称">
+          <el-input v-model="form.llm.model_name" :placeholder="defaultModel" />
         </el-form-item>
 
         <el-divider content-position="left">系统提示词</el-divider>
@@ -53,18 +60,34 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, onMounted } from 'vue'
+import { reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useAgentStore } from '@/stores/agent'
 
 const store = useAgentStore()
 const form = reactive({
-  llm: { provider: 'Qwen', url: '', api_key: '' },
+  llm: { provider: 'openai', url: '', api_key: '', model_name: '' },
   system_prompt: '',
   thresholds: {} as Record<string, number>,
   routing_rules: [] as { scene_id: string; pipeline: string }[],
 })
 const newRule = reactive({ scene_id: '', pipeline: '' })
+
+const showApiKey = computed(() => form.llm.provider !== 'ollama')
+
+const defaultUrl = computed(() => {
+  const p = store.providers.find(p => p.id === form.llm.provider)
+  return p?.default_url || ''
+})
+
+const defaultModel = computed(() => {
+  const map: Record<string, string> = {
+    openai: 'Qwen/Qwen2.5-VL-7B-Instruct',
+    ollama: 'llama3.2-vision',
+    lm_studio: '（自动检测）',
+  }
+  return map[form.llm.provider] || ''
+})
 
 onMounted(async () => {
   await store.load()
@@ -72,6 +95,24 @@ onMounted(async () => {
     Object.assign(form, JSON.parse(JSON.stringify(store.config)))
   }
 })
+
+function onProviderChange(provider: string) {
+  const p = store.providers.find(p => p.id === provider)
+  if (p) {
+    form.llm.url = p.default_url
+  }
+  if (provider === 'ollama') {
+    form.llm.api_key = ''
+  }
+  if (!form.llm.model_name) {
+    const map: Record<string, string> = {
+      openai: 'Qwen/Qwen2.5-VL-7B-Instruct',
+      ollama: 'llama3.2-vision',
+      lm_studio: '',
+    }
+    form.llm.model_name = map[provider] || ''
+  }
+}
 
 function addRule() {
   if (!newRule.scene_id || !newRule.pipeline) return

@@ -1,16 +1,19 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { fetchAgentConfig, saveAgentConfig, type AgentConfig } from '@/api/agent'
+import { fetchAgentConfig, saveAgentConfig, fetchProviders, type AgentConfig, type ProviderInfo } from '@/api/agent'
 
 export const useAgentStore = defineStore('agent', () => {
   const config = ref<AgentConfig | null>(null)
+  const providers = ref<ProviderInfo[]>([])
   const loading = ref(false)
   const saving = ref(false)
 
   async function load() {
     loading.value = true
     try {
-      config.value = await fetchAgentConfig()
+      const [cfg, prov] = await Promise.all([fetchAgentConfig(), fetchProviders()])
+      config.value = cfg
+      providers.value = prov
     } finally {
       loading.value = false
     }
@@ -26,5 +29,5 @@ export const useAgentStore = defineStore('agent', () => {
     }
   }
 
-  return { config, loading, saving, load, save }
+  return { config, providers, loading, saving, load, save }
 })

@@ -17,8 +17,8 @@ _verify_hasher = None
 def _get_verify_client():
     global _verify_client
     if _verify_client is None:
-        from src.agent.client import QwenVLClient
-        _verify_client = QwenVLClient()
+        from src.agent.agent_config import get_config_manager
+        _verify_client = get_config_manager().get_client()
     return _verify_client
 
 

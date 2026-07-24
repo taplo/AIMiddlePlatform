@@ -10,7 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 
 from src.agent.agent import CVAgent
-from src.agent.client import QwenVLClient
+from src.agent.agent_config import get_config_manager
 from src.agent.orchestrator import AgentOrchestrator
 from src.agent.tools import ToolRegistry, build_cv_tools
 from src.api.deps import init_session_factory
@@ -219,7 +219,7 @@ def _init_components() -> None:
     fast_path = FastPathHandler(scene_router, pipeline_registry, executor)
     tool_registry = ToolRegistry(inference)
     build_cv_tools(tool_registry)
-    agent = CVAgent(QwenVLClient(), tool_registry)
+    agent = CVAgent(get_config_manager().get_client(), tool_registry)
     collector = FrameCollector(output_dir=settings.get("data_collection.output_dir", "data/collected/agent_pairs")) if settings.get("data_collection.enabled", False) else None
     orchestrator = AgentOrchestrator(fast_path, agent, inference, collector=collector)
     from src.api.routes.analyze import analyze_frame

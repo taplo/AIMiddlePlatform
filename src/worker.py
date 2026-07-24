@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from src.agent.agent import CVAgent
-from src.agent.client import QwenVLClient
+from src.agent.agent_config import get_config_manager
 from src.agent.orchestrator import AgentOrchestrator
 from src.agent.tools import ToolRegistry, build_cv_tools
 from src.core.config import settings
